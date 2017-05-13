@@ -2,7 +2,6 @@ import numpy as np
 from copy import deepcopy
 import chess
 from chess.pgn import read_game
-import random
 
 
 class Chess(object):
@@ -12,8 +11,11 @@ class Chess(object):
         else:
             self.board = board
 
-    def reset(self):
-        self.board = chess.Board()
+    def reset(self, board=None):
+        if board is None:
+            self.board = chess.Board()
+        else:
+            self.board = board
 
     def get_reward(self, board=None):
         if board is None:

@@ -1,9 +1,10 @@
 import tensorflow as tf
 import numpy as np
 import time
-from collections import Counter
-from agents.random_agent import RandomAgent
+import pandas as pd
 from random import choice
+from chess import Board
+from os import listdir
 
 
 class NeuralNetworkAgent(object):
@@ -227,30 +228,52 @@ class NeuralNetworkAgent(object):
         self.saver.restore(self.sess, checkpoint)
 
     def test(self, env):
-        random_agent = RandomAgent()
+        def parse_tests(fn):
+            with open(fn, "r") as f:
+                tests = f.readlines()
 
-        white_counter = Counter()
-        for _ in range(5):
-            env.reset()
-            white_reward = env.play([self, random_agent])
-            white_counter.update([white_reward])
+            dicts = []
+            data = [[s for s in test.split('; ')] for test in tests]
+            for row in data:
+                d = dict()
+                d['fen'] = row[0].split(' bm ')[0] + " 0 0"
+                d['bm'] = row[0].split(' bm ')[1]
 
-        black_counter = Counter()
-        for _ in range(5):
-            env.reset()
-            black_reward = env.play([random_agent, self])
-            black_counter.update([black_reward])
+                for c in row[1:]:
+                    c = c.replace('"', '')
+                    c = c.replace(';\n', '')
+                    item = c.split(maxsplit=1, sep=" ")
+                    d[item[0]] = item[1]
+                dicts.append(d)
 
-        white_win_score = white_counter[1]*1.0/(white_counter[1]+white_counter[0]+white_counter[-1])
-        black_win_score = black_counter[-1]*1.0/(black_counter[1]+black_counter[0]+black_counter[-1])
+            for d in dicts:
+                move_rewards = {}
+                answers = d['c0'].split(',')
+                for answer in answers:
+                    move_reward = answer.split('=')
+                    move_rewards[move_reward[0].strip()] = int(move_reward[1])
+                d['c0'] = move_rewards
+            df = pd.DataFrame.from_dict(dicts)
+            df = df.set_index('id')
+            return df
 
-        self.sess.run([self.update_black_win_op, self.update_white_win_op],
-                      feed_dict={self.white_win_placeholder: white_win_score,
-                                 self.black_win_placeholder: black_win_score})
-
-        print('white rewards:', white_counter)
-        print('black rewards:', black_counter)
-        print(100 * '-')
+        path = "/Users/adam/Documents/projects/td_chess/STS[1-13]/"
+        filenames = [f for f in listdir(path)]
+        tot = 0
+        test_count = 0
+        correct_count = 0
+        for filename in filenames:
+            df = parse_tests(path + filename)
+            for idx, (fen, c0) in enumerate(zip(df.fen, df.c0)):
+                board = Board(fen=fen)
+                env.reset(board=board)
+                move = self.get_move(env)
+                reward = c0.get(board.san(move), 0)
+                test_count += 1
+                if reward > 0:
+                    correct_count += 1
+                tot += reward
+        return tot
 
     def get_move(self, env):
         legal_moves = env.get_legal_moves()
