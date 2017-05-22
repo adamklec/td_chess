@@ -4,6 +4,8 @@ from agents.random_agent import RandomAgent
 from agents.nn_agent import NeuralNetworkAgent
 from game import Chess
 import chess
+
+
 def main():
     with tf.Session() as sess:
         env = Chess()

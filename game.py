@@ -76,45 +76,6 @@ class Chess(object):
     def clone(self):
         return Chess(board=deepcopy(self.board))
 
-    def get_feature_vector(self, board=None):
-        if board is None:
-            board = self.board
-
-        piece_matrix = np.zeros((64, len(chess.PIECE_TYPES) + 1, len(chess.COLORS)))
-
-        # piece positions
-        for piece in chess.PIECE_TYPES:
-            for color in chess.COLORS:
-                piece_matrix[:, piece, int(not color)] = pad_bitmask(board.pieces_mask(piece, color))
-
-        # en passant taget squares
-        if board.ep_square:
-            piece_matrix[board.ep_square, len(chess.PIECE_TYPES), int(not board.turn)] = 1
-
-        reshaped_piece_matrix = piece_matrix.reshape((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)))
-        feature_vector = np.zeros((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 2))
-        feature_vector[:, :-2] = reshaped_piece_matrix
-
-        # empty squares
-        empty_squares = (reshaped_piece_matrix.sum(axis=1) == 0)
-        feature_vector[empty_squares, :-2] = 1
-
-        # castling rights
-        feature_vector[:, -1] = pad_bitmask(board.castling_rights)
-
-        return feature_vector
-
-def pad_bitmask(mask):
-    mask = [int(s) for s in list(bin(mask)[2:])]
-    while len(mask) < 64:
-        mask.insert(0, 0)
-    return np.array(mask)
-
-
-def bitmask_to_array(mask):
-    array = pad_bitmask(mask).reshape((8, 8))
-    return array
-
 
 def board_generator(pgn):
     while True:
