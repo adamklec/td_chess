@@ -10,6 +10,7 @@ def main():
     with tf.device("/cpu:0"):
         trainer = tf.train.AdamOptimizer(1e-4)
         master_agent = NeuralNetworkAgent(None, trainer, 'master')
+
     with tf.Session() as sess:
 
         agents = []
@@ -21,7 +22,7 @@ def main():
 
         agent_threads = []
         for agent in agents:
-            agent_train = lambda: agent.train(Chess(), 100, .05)
+            agent_train = lambda: agent.train(Chess(), 10, 0.05)
             t = threading.Thread(target=agent_train)
             print("starting", agent.name)
             t.start()

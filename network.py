@@ -27,11 +27,11 @@ class ChessNeuralNetwork(object):
         # piece positions
         for piece in chess.PIECE_TYPES:
             for color in chess.COLORS:
-                piece_matrix[:, piece, int(not color)] = pad_bitmask(board.pieces_mask(piece, color))
+                piece_matrix[:, piece, int(color)] = pad_bitmask(board.pieces_mask(piece, color))
 
         # en passant target squares
         if board.ep_square:
-            piece_matrix[board.ep_square, len(chess.PIECE_TYPES), int(not board.turn)] = 1
+            piece_matrix[board.ep_square, len(chess.PIECE_TYPES), int(board.turn)] = 1
 
         reshaped_piece_matrix = piece_matrix.reshape((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)))
         feature_array = np.zeros((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 2))
