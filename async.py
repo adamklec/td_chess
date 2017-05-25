@@ -13,7 +13,7 @@ def main():
 
     with tf.device("/cpu:0"):
         trainer = tf.train.AdamOptimizer(1e-4)
-        master_netork = ChessNeuralNetwork('master')
+        master_netork = ChessNeuralNetwork(trainer, 'master')
 
     with tf.Session() as sess:
 

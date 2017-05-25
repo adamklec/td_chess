@@ -9,7 +9,7 @@ def main():
         model_path = "/Users/adam/Documents/projects/td_chess/model"
 
         trainer = tf.train.AdamOptimizer(1e-4)
-        agent = NeuralNetworkAgent(sess, trainer, 'agent_0')
+        agent = NeuralNetworkAgent(sess, trainer, 'agent_0', test_only=True)
         saver = tf.train.Saver(max_to_keep=5)
 
         if load_model == True:
