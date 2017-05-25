@@ -10,7 +10,7 @@ class ChessNeuralNetwork(object):
 
             with tf.variable_scope('layer_1'):
                 W_1 = tf.get_variable('W_1', initializer=tf.truncated_normal([1025, 100], stddev=0.1))
-                b_1 = tf.get_variable('b_1', shape=[100], initializer=tf.constant_initializer(-0.1))
+                b_1 = tf.get_variable('b_1', shape=[100], initializer=tf.constant_initializer(0.0))
                 activation_1 = tf.nn.relu(tf.matmul(self.feature_vector_placeholder, W_1) + b_1, name='activation_1')
 
             with tf.variable_scope('layer_2'):

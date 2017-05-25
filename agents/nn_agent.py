@@ -9,14 +9,14 @@ import time
 
 
 class NeuralNetworkAgent(object):
-    def __init__(self, sess, trainer, name, checkpoint=None, restore=False):
+    def __init__(self, sess, trainer, name, checkpoint=None, restore=False,
+                 model_path="/Users/adam/Documents/projects/td_chess/model"):
         self.sess = sess
         self.trainer = trainer
         self.name = name
         self.neural_network = ChessNeuralNetwork(self.name)
         self.checkpoint = checkpoint
-        if restore:
-            self.restore(self.checkpoint)
+        self.model_path = model_path
 
         with tf.variable_scope(self.name):
             with tf.variable_scope('turn_count'):
@@ -30,13 +30,7 @@ class NeuralNetworkAgent(object):
 
             delta = self.target_value_placeholder - self.neural_network.value
 
-            loss = tf.reduce_sum(tf.square(delta, name='loss'))
-            self.average_loss = tf.Variable(0.0, trainable=False)
-            loss_ema = tf.train.ExponentialMovingAverage(decay=0.999)
-            average_loss_update_op = tf.group(loss_ema.apply([loss]), self.average_loss.assign(loss_ema.average(loss)))
-            tf.summary.scalar('average_loss', self.average_loss)
-
-            grads_and_vars = trainer.compute_gradients(self.neural_network.value, var_list=tf.trainable_variables())
+            grads = tf.gradients(self.neural_network.value, tf.trainable_variables())
 
             lamda = tf.constant(0.7, name='lamda')
 
@@ -49,7 +43,7 @@ class NeuralNetworkAgent(object):
             reset_accums = []
 
             with tf.variable_scope('update_traces'):
-                for grad, var in grads_and_vars:
+                for grad, var in zip(grads, tf.trainable_variables()):
                     if grad is None:
                         grad = tf.zeros_like(var)
                     with tf.variable_scope('trace'):
@@ -84,12 +78,13 @@ class NeuralNetworkAgent(object):
             for var, trace, grad_accum in zip(tf.trainable_variables(), traces, grad_accums):
                 tf.summary.histogram(var.name, var)
                 tf.summary.histogram(var.name, grad_accum)
-            tf.summary.scalar('average_loss', self.average_loss)
 
-            self.saver = tf.train.Saver(var_list=tf.trainable_variables(), max_to_keep=1)
             self.summaries_op = tf.summary.merge_all()
 
-    def train(self, env, num_episode, epsilon):
+        if restore:
+            self.restore(self.checkpoint)
+
+    def train(self, env, num_episode, epsilon, saver):
         tf.train.write_graph(self.sess.graph_def, './model/',
                              'td_chess.pb', as_text=False)
 
@@ -160,10 +155,10 @@ class NeuralNetworkAgent(object):
             if self.name == 'agent_0':
                 summary = self.sess.run(self.summaries_op)
                 summary_writer.add_summary(summary, episode)
+                saver.save(self.sess, self.model_path + '/model-' + str(episode) + '.cptk')
 
         if self.name == 'agent_0':
             summary_writer.close()
-
 
     def restore(self, checkpoint=None):
         if checkpoint is None:
