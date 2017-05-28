@@ -9,7 +9,7 @@ import time
 
 
 class NeuralNetworkAgent(object):
-    def __init__(self, sess, trainer, name, checkpoint=None, restore=False, test_only=False,
+    def __init__(self, sess, trainer, name, checkpoint=None, test_only=False,
                  model_path="/Users/adam/Documents/projects/td_chess/model"):
         self.test_only = test_only
         self.sess = sess
@@ -29,10 +29,17 @@ class NeuralNetworkAgent(object):
 
             self.summaries_op = tf.summary.merge_all()
 
-        if restore:
-            self.restore(self.checkpoint)
+    @staticmethod
+    def simple_value(board):
+        values = [1, 3, 3, 5, 9]
+        s = 0
+        for i, v in enumerate(values):
+            s += ChessNeuralNetwork.pad_bitmask(board.pieces_mask(i + 1, 1)).sum() * v
+            s -= ChessNeuralNetwork.pad_bitmask(board.pieces_mask(i + 1, 0)).sum() * v
+        return s
 
-    def train(self, env, num_episode, epsilon, saver):
+    def train(self, env, num_episode, epsilon, saver, pretrain=False):
+
         tf.train.write_graph(self.sess.graph_def, './model/',
                              'td_chess.pb', as_text=False)
 
@@ -41,6 +48,7 @@ class NeuralNetworkAgent(object):
             summary_writer = tf.summary.FileWriter('{0}{1}'.format('./log/', int(time.time())), graph=self.sess.graph)
 
         for episode in range(num_episode):
+            print(self.name, 'episode:', episode)
             # synch network with master
             self.update_target_graph('master', self.name)
 
@@ -66,27 +74,30 @@ class NeuralNetworkAgent(object):
 
                     candidate_boards = [candidate_env.board for candidate_env in candidate_envs]
 
-                    candidate_feature_vectors = np.vstack(
-                        [self.neural_network.make_feature_vector(candidate_board)
-                         for candidate_board in candidate_boards]
-                    )
-
-                    candidate_values = self.sess.run(self.neural_network.value,
-                                                     feed_dict={
-                                                         self.neural_network.feature_vector_placeholder: candidate_feature_vectors})
+                    if pretrain:
+                        simple_values = [self.simple_value(board) for board in candidate_boards]
+                        candidate_values = [np.tanh(simple_value/5 + np.random.rand()) for simple_value in simple_values]
+                    else:
+                        candidate_feature_vectors = np.vstack(
+                            [ChessNeuralNetwork.make_feature_vector(candidate_board)
+                             for candidate_board in candidate_boards]
+                        )
+                        candidate_values = self.sess.run(self.neural_network.value,
+                                                         feed_dict={
+                                                             self.neural_network.feature_vector_: candidate_feature_vectors})
 
                     if env.board.turn:
                         move_idx = np.argmax(candidate_values)
-                        next_value = np.argmax(candidate_values)
+                        next_value = np.max(candidate_values)
                     else:
                         move_idx = np.argmin(candidate_values)
-                        next_value = np.argmin(candidate_values)
+                        next_value = np.min(candidate_values)
 
                     move = legal_moves[move_idx]
                     self.sess.run([self.neural_network.update_accums_op, self.increment_turn_count_op],
                                   feed_dict={
-                                      self.neural_network.feature_vector_placeholder: feature_vector,
-                                      self.neural_network.target_value_placeholder: next_value})
+                                      self.neural_network.feature_vector_: feature_vector,
+                                      self.neural_network.target_value_: next_value})
 
                 # push the move onto the environment
                 env.make_move(move)
@@ -95,9 +106,9 @@ class NeuralNetworkAgent(object):
             feature_vector = self.neural_network.make_feature_vector(env.board)
             self.sess.run([self.neural_network.update_traces_op, self.neural_network.apply_grads],
                           feed_dict={
-                              self.neural_network.feature_vector_placeholder: feature_vector,
-                              self.neural_network.target_value_placeholder: env.get_reward()})
-            print(self.name, "episode:", episode, "turn count:", self.sess.run(self.game_turn_count))
+                              self.neural_network.feature_vector_: feature_vector,
+                              self.neural_network.target_value_: env.get_reward()})
+            print(self.name, "turn count:", self.sess.run(self.game_turn_count))
             self.sess.run(self.reset_game_turn_count_op)
 
             if self.name == 'agent_0':
@@ -171,7 +182,7 @@ class NeuralNetworkAgent(object):
         )
 
         candidate_values = self.sess.run(self.neural_network.value,
-                                         feed_dict={self.neural_network.feature_vector_placeholder: candidate_feature_vectors})
+                                         feed_dict={self.neural_network.feature_vector_: candidate_feature_vectors})
 
         if env.board.turn:
             move_idx = np.argmin(candidate_values)

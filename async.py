@@ -34,7 +34,7 @@ def main():
 
         agent_threads = []
         for agent in agents:
-            agent_train = lambda: agent.train(Chess(), 10, 0.05, saver)
+            agent_train = lambda: agent.train(Chess(), 10, 0.05, saver, pretrain=True)
             t = threading.Thread(target=agent_train)
             print("starting", agent.name)
             t.start()

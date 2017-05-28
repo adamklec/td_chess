@@ -9,12 +9,12 @@ class ChessNeuralNetwork(object):
         self.test_only = test_only
 
         with tf.variable_scope(scope):
-            self.feature_vector_placeholder = tf.placeholder(tf.float32, shape=[None, 1025], name='feature_vector_placeholder')
+            self.feature_vector_ = tf.placeholder(tf.float32, shape=[None, 1025], name='feature_vector_')
 
             with tf.variable_scope('layer_1'):
                 W_1 = tf.get_variable('W_1', initializer=tf.truncated_normal([1025, 100], stddev=0.1))
                 b_1 = tf.get_variable('b_1', shape=[100], initializer=tf.constant_initializer(0.0))
-                activation_1 = tf.nn.relu(tf.matmul(self.feature_vector_placeholder, W_1) + b_1, name='activation_1')
+                activation_1 = tf.nn.relu(tf.matmul(self.feature_vector_, W_1) + b_1, name='activation_1')
 
             with tf.variable_scope('layer_2'):
                 W_2 = tf.get_variable('W_2', initializer=tf.truncated_normal([100, 1], stddev=0.1))
@@ -22,9 +22,9 @@ class ChessNeuralNetwork(object):
 
             self.value = tf.nn.tanh(tf.matmul(activation_1, W_2) + b_2, name='value')
 
-            self.target_value_placeholder = tf.placeholder(tf.float32, shape=[], name='reward_placeholder')
+            self.target_value_ = tf.placeholder(tf.float32, shape=[], name='reward_placeholder')
 
-            delta = self.target_value_placeholder - self.value
+            delta = self.target_value_ - self.value
 
             grads = tf.gradients(self.value, tf.trainable_variables())
 
@@ -84,7 +84,7 @@ class ChessNeuralNetwork(object):
         # piece positions
         for piece in chess.PIECE_TYPES:
             for color in chess.COLORS:
-                piece_matrix[:, piece, int(color)] = pad_bitmask(board.pieces_mask(piece, color))
+                piece_matrix[:, piece, int(color)] = ChessNeuralNetwork.pad_bitmask(board.pieces_mask(piece, color))
 
         # en passant target squares
         if board.ep_square:
@@ -99,7 +99,7 @@ class ChessNeuralNetwork(object):
         feature_array[empty_squares, :-2] = 1
 
         # castling rights
-        feature_array[:, -1] = pad_bitmask(board.castling_rights)
+        feature_array[:, -1] = ChessNeuralNetwork.pad_bitmask(board.castling_rights)
 
         feature_vector = np.zeros((1, 1025))
         feature_vector[0, :-1] = np.reshape(feature_array, (1024,))
@@ -107,8 +107,9 @@ class ChessNeuralNetwork(object):
 
         return feature_vector
 
-def pad_bitmask(mask):
-    mask = [int(s) for s in list(bin(mask)[2:])]
-    while len(mask) < 64:
-        mask.insert(0, 0)
-    return np.array(mask)
+    @staticmethod
+    def pad_bitmask(mask):
+        mask = [int(s) for s in list(bin(mask)[2:])]
+        while len(mask) < 64:
+            mask.insert(0, 0)
+        return np.array(mask)
