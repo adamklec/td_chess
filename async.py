@@ -11,14 +11,14 @@ def main():
     load_model = False
     model_path = "/Users/adam/Documents/projects/td_chess/model"
 
-    with tf.device("/cpu:0"):
-        trainer = tf.train.AdamOptimizer(1e-4)
-        master_netork = ChessNeuralNetwork(trainer, 'master')
-
     with tf.Session() as sess:
+        with tf.variable_scope('master'):
+            master_netork = ChessNeuralNetwork()
 
-        agents = []
+        trainer = tf.train.AdamOptimizer(1e-4)
+
         num_agents = multiprocessing.cpu_count()
+        agents = []
 
         for i in range(num_agents):
             agents.append(NeuralNetworkAgent(sess, trainer, 'agent_' + str(i)))

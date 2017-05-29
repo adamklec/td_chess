@@ -4,11 +4,10 @@ import numpy as np
 
 
 class ChessNeuralNetwork(object):
-    def __init__(self, trainer, scope, test_only=False):
-        self.trainer = trainer
+    def __init__(self, trainer=None, test_only=False):
         self.test_only = test_only
 
-        with tf.variable_scope(scope):
+        with tf.variable_scope('neural_network'):
             self.feature_vector_ = tf.placeholder(tf.float32, shape=[None, 1025], name='feature_vector_')
 
             with tf.variable_scope('layer_1'):
@@ -24,10 +23,6 @@ class ChessNeuralNetwork(object):
 
             self.target_value_ = tf.placeholder(tf.float32, shape=[], name='reward_placeholder')
 
-            delta = self.target_value_ - self.value
-
-            grads = tf.gradients(self.value, tf.trainable_variables())
-
             lamda = tf.constant(0.7, name='lamda')
 
             traces = []
@@ -38,43 +33,46 @@ class ChessNeuralNetwork(object):
             update_accums = []
             reset_accums = []
 
-            with tf.variable_scope('update_traces'):
-                for grad, var in zip(grads, tf.trainable_variables()):
-                    if grad is None:
-                        grad = tf.zeros_like(var)
-                    with tf.variable_scope('trace'):
-                        trace = tf.Variable(tf.zeros(grad.get_shape()), trainable=False, name='trace')
-                        traces.append(trace)
+            if trainer is not None:
+                delta = self.target_value_ - self.value
+                trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope().name)
+                grads = tf.gradients(self.value, trainable_variables)
 
-                        update_trace_op = trace.assign((lamda * trace) + grad)
-                        update_traces.append(update_trace_op)
+                with tf.variable_scope('update_traces'):
+                    for grad, var in zip(grads, trainable_variables):
+                        with tf.variable_scope('trace'):
+                            trace = tf.Variable(tf.zeros(grad.get_shape()), trainable=False, name='trace')
+                            traces.append(trace)
 
-                        reset_trace_op = trace.assign(tf.zeros_like(trace))
-                        reset_traces.append(reset_trace_op)
+                            update_trace_op = trace.assign((lamda * trace) + grad)
+                            update_traces.append(update_trace_op)
 
-                        grad_accum = tf.Variable(tf.zeros(grad.get_shape()), trainable=False, name='trace')
-                        grad_accums.append(grad_accum)
+                            reset_trace_op = trace.assign(tf.zeros_like(trace))
+                            reset_traces.append(reset_trace_op)
 
-                        update_accum_op = grad_accum.assign((-tf.reduce_sum(delta) * trace) + grad_accum)
-                        update_accums.append(update_accum_op)
+                            grad_accum = tf.Variable(tf.zeros(grad.get_shape()), trainable=False, name='grad_accum')
+                            grad_accums.append(grad_accum)
 
-                        reset_accum_op = trace.assign(tf.zeros_like(trace))
-                        reset_accums.append(reset_accum_op)
+                            update_accum_op = grad_accum.assign((-tf.reduce_sum(delta) * trace) + grad_accum)
+                            update_accums.append(update_accum_op)
 
-            self.update_traces_op = tf.group(*update_traces)
-            with tf.control_dependencies([self.update_traces_op]):
-                self.update_accums_op = tf.group(*update_accums)
+                            reset_accum_op = trace.assign(tf.zeros_like(trace))
+                            reset_accums.append(reset_accum_op)
 
-            self.reset_traces_op = tf.group(*reset_traces)
-            self.reset_accums_op = tf.group(*reset_accums)
+                    self.update_traces_op = tf.group(*update_traces)
+                    with tf.control_dependencies([self.update_traces_op]):
+                        self.update_accums_op = tf.group(*update_accums)
 
-            if not self.test_only:
-                master_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'master')
-                self.apply_grads = self.trainer.apply_gradients(zip(grad_accums, master_vars))
+                    self.reset_traces_op = tf.group(*reset_traces)
+                    self.reset_accums_op = tf.group(*reset_accums)
 
-                for var, trace, grad_accum in zip(tf.trainable_variables(), traces, grad_accums):
-                    tf.summary.histogram(var.name, var)
-                    tf.summary.histogram(var.name, grad_accum)
+                if not self.test_only:
+                    master_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'master')
+                    self.apply_grads = trainer.apply_gradients(zip(grad_accums, master_vars))
+
+                    for var, trace, grad_accum in zip(tf.trainable_variables(), traces, grad_accums):
+                        tf.summary.histogram(var.name, var)
+                        tf.summary.histogram(var.name, grad_accum)
 
 
     @staticmethod

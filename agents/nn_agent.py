@@ -15,11 +15,12 @@ class NeuralNetworkAgent(object):
         self.sess = sess
         self.trainer = trainer
         self.name = name
-        self.neural_network = ChessNeuralNetwork(self.trainer, self.name, test_only=self.test_only)
         self.checkpoint = checkpoint
         self.model_path = model_path
 
         with tf.variable_scope(self.name):
+            self.neural_network = ChessNeuralNetwork(trainer=self.trainer, test_only=self.test_only)
+
             with tf.variable_scope('turn_count'):
                 self.game_turn_count = tf.Variable(0, name='game_turn_count', trainable=False, dtype=tf.int32)
                 self.global_turn_count = tf.Variable(0, name='global_turn_count', trainable=False, dtype=tf.int32)
@@ -40,8 +41,7 @@ class NeuralNetworkAgent(object):
 
     def train(self, env, num_episode, epsilon, saver, pretrain=False):
 
-        tf.train.write_graph(self.sess.graph_def, './model/',
-                             'td_chess.pb', as_text=False)
+        tf.train.write_graph(self.sess.graph_def, './model/', 'td_chess.pb', as_text=False)
 
         if self.name == 'agent_0':
             tf.train.write_graph(self.sess.graph_def, './model/', 'td_chess.pb', as_text=False)
