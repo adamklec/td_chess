@@ -13,15 +13,14 @@ def main():
 
     with tf.Session() as sess:
         with tf.variable_scope('master'):
+            global_episode_count = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
             master_netork = ChessNeuralNetwork()
-
-        trainer = tf.train.AdamOptimizer(1e-4)
 
         num_agents = multiprocessing.cpu_count()
         agents = []
 
         for i in range(num_agents):
-            agents.append(NeuralNetworkAgent(sess, trainer, 'agent_' + str(i)))
+            agents.append(NeuralNetworkAgent(sess, 'agent_' + str(i), global_episode_count))
 
         saver = tf.train.Saver(max_to_keep=5)
 

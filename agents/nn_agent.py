@@ -9,24 +9,26 @@ import time
 
 
 class NeuralNetworkAgent(object):
-    def __init__(self, sess, trainer, name, checkpoint=None, test_only=False,
+    def __init__(self, sess, name, global_episode_count, checkpoint=None, test_only=False,
                  model_path="/Users/adam/Documents/projects/td_chess/model"):
         self.test_only = test_only
         self.sess = sess
-        self.trainer = trainer
+        self.trainer = tf.train.AdamOptimizer(1e-4)
         self.name = name
         self.checkpoint = checkpoint
         self.model_path = model_path
+        self.global_episode_count = global_episode_count
 
         with tf.variable_scope(self.name):
-            self.neural_network = ChessNeuralNetwork(trainer=self.trainer, test_only=self.test_only)
-
             with tf.variable_scope('turn_count'):
                 self.game_turn_count = tf.Variable(0, name='game_turn_count', trainable=False, dtype=tf.int32)
-                self.global_turn_count = tf.Variable(0, name='global_turn_count', trainable=False, dtype=tf.int32)
-                self.increment_turn_count_op = tf.group(self.game_turn_count.assign_add(1), self.global_turn_count.assign_add(1))
+                self.total_turn_count = tf.Variable(0, name='global_turn_count', trainable=False, dtype=tf.int32)
+                self.increment_turn_count_op = tf.group(*[self.game_turn_count.assign_add(1), self.total_turn_count.assign_add(1)], name='increment_turn_count_op')
                 self.reset_game_turn_count_op = self.game_turn_count.assign(0)
-                self.reset_global_turn_count_op = self.global_turn_count.assign(0)
+                self.reset_total_turn_count_op = self.total_turn_count.assign(0)
+                self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
+
+            self.neural_network = ChessNeuralNetwork(trainer=self.trainer)
 
             self.summaries_op = tf.summary.merge_all()
 
@@ -40,8 +42,6 @@ class NeuralNetworkAgent(object):
         return s
 
     def train(self, env, num_episode, epsilon, saver, pretrain=False):
-
-        tf.train.write_graph(self.sess.graph_def, './model/', 'td_chess.pb', as_text=False)
 
         if self.name == 'agent_0':
             tf.train.write_graph(self.sess.graph_def, './model/', 'td_chess.pb', as_text=False)
@@ -104,17 +104,18 @@ class NeuralNetworkAgent(object):
 
             # update traces with final state and reward
             feature_vector = self.neural_network.make_feature_vector(env.board)
-            self.sess.run([self.neural_network.update_traces_op, self.neural_network.apply_grads],
+            self.sess.run([self.neural_network.update_traces_op,
+                           self.neural_network.apply_grads],
                           feed_dict={
                               self.neural_network.feature_vector_: feature_vector,
                               self.neural_network.target_value_: env.get_reward()})
             print(self.name, "turn count:", self.sess.run(self.game_turn_count))
-            self.sess.run(self.reset_game_turn_count_op)
+            self.sess.run([self.reset_game_turn_count_op, self.increment_global_episode_count_op])
 
             if self.name == 'agent_0':
-                summary = self.sess.run(self.summaries_op)
-                summary_writer.add_summary(summary, episode)
-                saver.save(self.sess, self.model_path + '/model-' + str(episode) + '.cptk')
+                summary, global_episode_count = self.sess.run([self.summaries_op, self.global_episode_count])
+                summary_writer.add_summary(summary, global_episode_count)
+                saver.save(self.sess, self.model_path + '/model-' + str(global_episode_count) + '.cptk')
 
         if self.name == 'agent_0':
             summary_writer.close()
@@ -195,10 +196,8 @@ class NeuralNetworkAgent(object):
 
     @staticmethod
     def update_target_graph(from_scope, to_scope):
-        from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-                                      from_scope)
+        from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, from_scope)
         to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, to_scope)
-
         op_holder = []
         for from_var, to_var in zip(from_vars, to_vars):
             op_holder.append(to_var.assign(from_var))
