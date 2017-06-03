@@ -12,19 +12,20 @@ def main():
     model_path = "/Users/adam/Documents/projects/td_chess/model"
 
     with tf.Session() as sess:
+        global_episode_count = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
+
         with tf.variable_scope('master'):
-            global_episode_count = tf.Variable(0, dtype=tf.int32, name='global_episodes', trainable=False)
             master_netork = ChessNeuralNetwork()
 
         num_agents = multiprocessing.cpu_count()
         agents = []
 
         for i in range(num_agents):
-            agents.append(NeuralNetworkAgent(sess, 'agent_' + str(i), global_episode_count))
+            agents.append(NeuralNetworkAgent(sess, 'agent_' + str(i), global_episode_count, verbose=True))
 
         saver = tf.train.Saver(max_to_keep=5)
 
-        if load_model == True:
+        if load_model:
             print('Loading Model...')
             ckpt = tf.train.get_checkpoint_state(model_path)
             saver.restore(sess, ckpt.model_checkpoint_path)
@@ -33,7 +34,7 @@ def main():
 
         agent_threads = []
         for agent in agents:
-            agent_train = lambda: agent.train(Chess(), 10, 0.05, saver, pretrain=True)
+            agent_train = lambda: agent.train(Chess(), 100, 0.05, saver, pretrain=True)
             t = threading.Thread(target=agent_train)
             print("starting", agent.name)
             t.start()

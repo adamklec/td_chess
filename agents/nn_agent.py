@@ -9,11 +9,11 @@ import time
 
 
 class NeuralNetworkAgent(object):
-    def __init__(self, sess, name, global_episode_count, checkpoint=None, test_only=False,
+    def __init__(self, sess, name, global_episode_count, checkpoint=None, verbose=False,
                  model_path="/Users/adam/Documents/projects/td_chess/model"):
-        self.test_only = test_only
+        self.verbose = verbose
         self.sess = sess
-        self.trainer = tf.train.AdamOptimizer(1e-4)
+        self.trainer = tf.train.AdamOptimizer()
         self.name = name
         self.checkpoint = checkpoint
         self.model_path = model_path
@@ -28,9 +28,7 @@ class NeuralNetworkAgent(object):
                 self.reset_total_turn_count_op = self.total_turn_count.assign(0)
                 self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
 
-            self.neural_network = ChessNeuralNetwork(trainer=self.trainer)
-
-            self.summaries_op = tf.summary.merge_all()
+            self.neural_network = ChessNeuralNetwork(trainer=self.trainer, name=self.name)
 
     @staticmethod
     def simple_value(board):
@@ -45,12 +43,17 @@ class NeuralNetworkAgent(object):
 
         if self.name == 'agent_0':
             tf.train.write_graph(self.sess.graph_def, './model/', 'td_chess.pb', as_text=False)
-            summary_writer = tf.summary.FileWriter('{0}{1}'.format('./log/', int(time.time())), graph=self.sess.graph)
+            turn_summary_writer = tf.summary.FileWriter('{0}{1}'.format('./log/turn/', int(time.time())), graph=self.sess.graph)
+            episode_summary_writer = tf.summary.FileWriter('{0}{1}'.format('./log/episode/', int(time.time())), graph=self.sess.graph)
 
         for episode in range(num_episode):
-            print(self.name, 'episode:', episode)
+            self.sess.run([self.neural_network.reset_traces_op,
+                           self.neural_network.reset_accums_op])
+            if self.verbose:
+                print(self.name, 'episode:', episode)
             # synch network with master
-            self.update_target_graph('master', self.name)
+            # self.update_target_graph('master', self.name)
+            self.sess.run(self.neural_network.sync_to_master)
 
             # reset traces and environment
             self.sess.run([self.neural_network.reset_traces_op, self.reset_game_turn_count_op])
@@ -60,7 +63,10 @@ class NeuralNetworkAgent(object):
 
                 # with probability epsilon apply the grads, reset traces, and make a random move
                 if np.random.rand() < epsilon:
-                    self.sess.run([self.neural_network.apply_grads, self.neural_network.reset_traces_op, self.neural_network.reset_accums_op, self.increment_turn_count_op])
+                    self.sess.run([self.neural_network.apply_grads,
+                                   self.neural_network.reset_traces_op,
+                                   self.neural_network.reset_accums_op,
+                                   self.increment_turn_count_op])
                     move = choice(env.get_legal_moves())
 
                 # otherwise greedily select a move and update the traces
@@ -94,13 +100,36 @@ class NeuralNetworkAgent(object):
                         next_value = np.min(candidate_values)
 
                     move = legal_moves[move_idx]
-                    self.sess.run([self.neural_network.update_accums_op, self.increment_turn_count_op],
-                                  feed_dict={
-                                      self.neural_network.feature_vector_: feature_vector,
-                                      self.neural_network.target_value_: next_value})
+                    total_turn_count = self.sess.run(self.total_turn_count)
+
+                    if self.name == 'agent_0' and total_turn_count % 100 == 0:
+                        turn_summaries, _, _ = self.sess.run([self.neural_network.turn_summary_op,
+                                                        self.neural_network.update_accums_op,
+                                                        self.increment_turn_count_op],
+                                                       feed_dict={
+                                                           self.neural_network.feature_vector_: feature_vector,
+                                                           self.neural_network.target_value_: next_value})
+                        # for turn_summary in turn_summaries:
+                        #     turn_summary_writer.add_summary(turn_summary, total_turn_count)
+                        #     turn_summary_writer.flush()
+                        turn_summary_writer.add_summary(turn_summaries, total_turn_count)
+                        turn_summary_writer.flush()
+                    else:
+                        self.sess.run([self.neural_network.update_accums_op,
+                                       self.increment_turn_count_op],
+                                      feed_dict={
+                                          self.neural_network.feature_vector_: feature_vector,
+                                          self.neural_network.target_value_: next_value})
 
                 # push the move onto the environment
                 env.make_move(move)
+
+            global_episode_count = self.sess.run(self.global_episode_count)
+            if self.name == 'agent_0' and global_episode_count % 1 == 0:
+                episode_summaries = self.sess.run(self.neural_network.episode_summary_op)
+                episode_summary_writer.add_summary(episode_summaries, global_episode_count)
+                episode_summary_writer.flush()
+                saver.save(self.sess, self.model_path + '/model-' + str(global_episode_count) + '.cptk')
 
             # update traces with final state and reward
             feature_vector = self.neural_network.make_feature_vector(env.board)
@@ -109,16 +138,14 @@ class NeuralNetworkAgent(object):
                           feed_dict={
                               self.neural_network.feature_vector_: feature_vector,
                               self.neural_network.target_value_: env.get_reward()})
-            print(self.name, "turn count:", self.sess.run(self.game_turn_count))
+            if self.verbose:
+                print("turn count:", self.sess.run(self.game_turn_count))
+                print("global episode count:", self.sess.run(self.global_episode_count))
             self.sess.run([self.reset_game_turn_count_op, self.increment_global_episode_count_op])
 
-            if self.name == 'agent_0':
-                summary, global_episode_count = self.sess.run([self.summaries_op, self.global_episode_count])
-                summary_writer.add_summary(summary, global_episode_count)
-                saver.save(self.sess, self.model_path + '/model-' + str(global_episode_count) + '.cptk')
-
         if self.name == 'agent_0':
-            summary_writer.close()
+            turn_summary_writer.close()
+            episode_summary_writer.close()
 
     def test(self, env):
         def parse_tests(fn):
@@ -194,11 +221,11 @@ class NeuralNetworkAgent(object):
 
         return move
 
-    @staticmethod
-    def update_target_graph(from_scope, to_scope):
-        from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, from_scope)
-        to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, to_scope)
-        op_holder = []
-        for from_var, to_var in zip(from_vars, to_vars):
-            op_holder.append(to_var.assign(from_var))
-        return op_holder
+    # @staticmethod
+    # def update_target_graph(from_scope, to_scope):
+    #     from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, from_scope)
+    #     to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, to_scope)
+    #     op_holder = []
+    #     for from_var, to_var in zip(from_vars, to_vars):
+    #         op_holder.append(to_var.assign(from_var))
+    #     return op_holder
