@@ -17,7 +17,7 @@ def main():
         with tf.variable_scope('master'):
             master_netork = ChessNeuralNetwork()
 
-        num_agents = multiprocessing.cpu_count()
+        num_agents = 2 #multiprocessing.cpu_count()
         agents = []
 
         for i in range(num_agents):
