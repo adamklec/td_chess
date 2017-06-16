@@ -5,7 +5,7 @@ from time import sleep
 from game import Chess
 from agents.nn_agent import NeuralNetworkAgent
 from network import ChessNeuralNetwork
-
+import multiprocessing
 
 def main():
     load_model = False
@@ -17,11 +17,12 @@ def main():
         with tf.variable_scope('master'):
             master_netork = ChessNeuralNetwork()
 
+        trainer = tf.train.RMSPropOptimizer(.001)
         num_agents = 2 #multiprocessing.cpu_count()
         agents = []
 
         for i in range(num_agents):
-            agents.append(NeuralNetworkAgent(sess, 'agent_' + str(i), global_episode_count, verbose=True))
+            agents.append(NeuralNetworkAgent(sess, 'agent_' + str(i), trainer, global_episode_count, verbose=True))
 
         saver = tf.train.Saver(max_to_keep=5)
 
@@ -32,17 +33,24 @@ def main():
         else:
             sess.run(tf.global_variables_initializer())
 
-        agent_threads = []
-        for agent in agents:
-            agent_train = lambda: agent.train(Chess(), 100, 0.05, saver, pretrain=True)
-            t = threading.Thread(target=agent_train)
-            print("starting", agent.name)
-            t.start()
-            sleep(0.5)
-            agent_threads.append(t)
+        # agent_threads = []
+        pool = multiprocessing.Pool(processes=num_agents)
+        # for agent in agents:
+        #     agent_train = lambda: agent.train(Chess(), 100, 0.05, saver, pretrain=True)
+        #     # t = threading.Thread(target=agent_train)
+        #     p = multiprocessing.Process(target=agent_train)
+        #     print("starting", agent.name)
+        #     p.start()
+        #     # p.join()
+        #     # sleep(0.5)
+        #     agent_threads.append(p)
 
-        coord = tf.train.Coordinator()
-        coord.join(agent_threads)
+        agent_train = lambda agent: agent.train(Chess(), 100, 0.05, saver, pretrain=True)
+        agent_trains = [agent_train(agent) for agent in agents]
+        multiple_results = pool.map(agent_train, agents)
+
+            # coord = tf.train.Coordinator()
+        # coord.join(agent_threads)
 
 if __name__ == "__main__":
     main()
