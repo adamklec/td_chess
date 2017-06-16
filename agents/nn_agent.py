@@ -111,9 +111,6 @@ class NeuralNetworkAgent(object):
             if self.verbose:
                 print(self.name, 'episode:', episode)
 
-            # sync network with master
-            # sess.run(self.sync_to_master)
-
             # reset traces and environment
             sess.run([self.reset_traces_op, self.reset_game_turn_count_op])
             env.reset()
