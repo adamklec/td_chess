@@ -4,12 +4,12 @@ import pandas as pd
 from random import choice
 from chess import Board
 from os import listdir
-from network import ChessNeuralNetwork
 import time
+from network import ChessNeuralNetwork
 
 
 class NeuralNetworkAgent(object):
-    def __init__(self, name, global_episode_count, checkpoint=None, verbose=False,
+    def __init__(self, network, name, global_episode_count, checkpoint=None, verbose=False,
                  model_path="/Users/adam/Documents/projects/td_chess/model"):
         self.verbose = verbose
         self.trainer = tf.train.RMSPropOptimizer(.001)
@@ -19,70 +19,46 @@ class NeuralNetworkAgent(object):
         self.global_episode_count = global_episode_count
 
         # with tf.variable_scope(self.name):
-        self.neural_network = ChessNeuralNetwork(name=self.name)
+        self.neural_network = network
 
-        traces = []
-        update_traces = []
-        reset_traces = []
+        self.traces = []
+        for var in self.neural_network.trainable_variables:
+            trace = np.zeros(var.get_shape())
+            self.traces.append(trace)
 
-        trace_accums = []
-        update_accums = []
-        reset_accums = []
+        self.trace_accums = []
+        for var in self.neural_network.trainable_variables:
+            trace_accum = np.zeros(var.get_shape())
+            self.trace_accums.append(trace_accum)
 
-        lamda = tf.constant(0.7, name='lamda')
+        self.lamda = .7
 
-        with tf.variable_scope('traces'):
-            delta = tf.subtract(self.neural_network.target_value_, self.neural_network.value, name='delta')
+        self.grad_vars = self.trainer.compute_gradients(self.neural_network.value, self.neural_network.trainable_variables)
 
-            grads_vars = self.trainer.compute_gradients(self.neural_network.value, self.neural_network.trainable_variables, colocate_gradients_with_ops=True)
-            for grad, var in grads_vars:
-                var_short_name = var.op.name[-3:]
-                with tf.variable_scope(var_short_name):
-                    trace = tf.Variable(tf.zeros(grad.get_shape()), trainable=False, name='trace')
-                    traces.append(trace)
-
-                    update_trace_op = trace.assign(lamda * trace + grad)
-                    update_traces.append(update_trace_op)
-
-                    reset_trace_op = trace.assign(tf.zeros_like(trace))
-                    reset_traces.append(reset_trace_op)
-
-                    trace_accum = tf.Variable(tf.zeros(grad.get_shape()), trainable=False, name='trace_accum')
-                    trace_accums.append(trace_accum)
-
-                    delta_trace = tf.multiply(tf.reduce_sum(delta), trace, name='delta_trace')
-                    update_accum_op = trace_accum.assign_sub(delta_trace)  # sub for gradient ascent
-                    update_accums.append(update_accum_op)
-
-                    reset_accum_op = trace.assign(tf.zeros_like(trace))
-                    reset_accums.append(reset_accum_op)
-
-            self.update_traces_op = tf.group(*update_traces, name='update_traces')
-            with tf.control_dependencies([self.update_traces_op]):
-                self.update_accums_op = tf.group(*update_accums, name='update_accums')
-
-            self.reset_traces_op = tf.group(*reset_traces, name='reset_traces')
-            self.reset_accums_op = tf.group(*reset_accums, name='reset_accums')
-
-        self.apply_grads = self.trainer.apply_gradients(zip(trace_accums, self.neural_network.trainable_variables), name='apply_grads')
+        self.trace_accum_placeholders = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.neural_network.trainable_variables]
+        self.apply_grads = self.trainer.apply_gradients(zip(self.trace_accum_placeholders, self.neural_network.trainable_variables), name='apply_grads')
 
         with tf.variable_scope('turn_count'):
-            self.game_turn_count = tf.Variable(0, name='game_turn_count', trainable=False, dtype=tf.int32)
-            self.total_turn_count = tf.Variable(0, name='global_turn_count', trainable=False, dtype=tf.int32)
-            self.increment_turn_count_op = tf.group(*[self.game_turn_count.assign_add(1), self.total_turn_count.assign_add(1)], name='increment_turn_count_op')
-            self.reset_game_turn_count_op = self.game_turn_count.assign(0)
-            self.reset_total_turn_count_op = self.total_turn_count.assign(0)
             self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
 
-        if name == 'agent_0':
-            for (grad, var), trace, grad_accum in zip(grads_vars, traces, trace_accums):
-                tf.summary.histogram(grad.op.name, grad, collections=['turn_summaries'])
-                tf.summary.histogram(var.op.name, var, collections=['episode_summaries'])
-                tf.summary.histogram(trace.op.name, trace, collections=['episode_summaries'])
-                tf.summary.histogram(grad_accum.op.name, grad_accum, collections=['episode_summaries'])
+            # self.episode_summary_op = tf.summary.merge(tf.get_collection('episode_summaries'))
+            # self.turn_summary_op = tf.summary.merge(tf.get_collection('turn_summaries'))
 
-            self.episode_summary_op = tf.summary.merge(tf.get_collection('episode_summaries'))
-            self.turn_summary_op = tf.summary.merge(tf.get_collection('turn_summaries'))
+    def update_traces(self, grads):
+        for idx in range(len(grads)):
+            self.traces[idx] = self.lamda * self.traces[idx] + grads[idx]
+
+    def update_trace_accums(self, delta):
+        for idx in range(len(self.traces)):
+            self.trace_accums[idx] -= self.traces[idx]  # sub for gradient ascent
+
+    def reset_traces(self):
+        for trace in self.traces:
+            trace[:] = 0
+
+    def reset_trace_accums(self):
+        for trace_accum in self.trace_accums:
+            trace_accum[:] = 0
 
     @staticmethod
     def simple_value(board):
@@ -101,28 +77,27 @@ class NeuralNetworkAgent(object):
 
     def train(self, sess, env, num_episode, epsilon, pretrain=False):
 
-        if self.name == 'agent_0':
-            # tf.train.write_graph(sess.graph_def, './model/', 'td_chess.pb', as_text=False)
-            summary_writer = tf.summary.FileWriter('{0}{1}'.format('./log/', int(time.time())), graph=sess.graph)
-
         for episode in range(num_episode):
-            sess.run([self.reset_traces_op,
-                      self.reset_accums_op])
+            turn_count = 0
             if self.verbose:
                 print(self.name, 'episode:', episode)
 
-            # reset traces and environment
-            sess.run([self.reset_traces_op, self.reset_game_turn_count_op])
+            self.reset_traces()
+            self.reset_trace_accums()
             env.reset()
 
             while env.get_reward() is None:
 
                 # with probability epsilon apply the grads, reset traces, and make a random move
                 if np.random.rand() < epsilon:
-                    sess.run([self.apply_grads,
-                                   self.reset_traces_op,
-                                   self.reset_accums_op,
-                                   self.increment_turn_count_op])
+                    self.reset_traces()
+                    self.reset_trace_accums()
+
+                    sess.run(self.apply_grads,
+                             feed_dict={trace_accum_placeholder: trace_accum
+                                        for trace_accum_placeholder, trace_accum in zip(self.trace_accum_placeholders, self.trace_accums)}
+                             )
+                    turn_count += 1
                     move = choice(env.get_legal_moves())
 
                 # otherwise greedily select a move and update the traces
@@ -156,50 +131,39 @@ class NeuralNetworkAgent(object):
                         next_value = np.min(candidate_values)
 
                     move = legal_moves[move_idx]
-                    total_turn_count = sess.run(self.total_turn_count)
 
-                    if self.name == 'agent_0' and total_turn_count % 100 == 0:
-                        turn_summaries, _, _ = sess.run([self.turn_summary_op,
-                                                         self.update_accums_op,
-                                                         self.increment_turn_count_op],
-                                                        feed_dict={
-                                                            self.neural_network.feature_vector_: feature_vector,
-                                                            self.neural_network.target_value_: next_value})
-                        summary_writer.add_summary(turn_summaries, total_turn_count)
-                        summary_writer.flush()
-                    else:
-                        sess.run([self.update_accums_op,
-                                  self.increment_turn_count_op],
-                                 feed_dict={
-                                     self.neural_network.feature_vector_: feature_vector,
-                                     self.neural_network.target_value_: next_value})
+                    value = sess.run(self.neural_network.value,
+                             feed_dict={self.neural_network.feature_vector_: feature_vector})
+
+                    delta = next_value - value
+
+                    self.update_trace_accums(delta)
+
+                    turn_count += 1
 
                 # push the move onto the environment
                 env.make_move(move)
 
             global_episode_count = sess.run(self.global_episode_count)
 
-            if self.name == 'agent_0' and global_episode_count % 1 == 0:
-                episode_summaries = sess.run(self.episode_summary_op)
-                summary_writer.add_summary(episode_summaries, global_episode_count)
-                summary_writer.flush()
-                # saver.save(sess, self.model_path + '/model-' + str(global_episode_count) + '.cptk')
-
             # update traces with final state and reward
             feature_vector = self.neural_network.make_feature_vector(env.board)
-            sess.run([self.update_traces_op,
-                      self.apply_grads],
-                     feed_dict={
-                         self.neural_network.feature_vector_: feature_vector,
-                         self.neural_network.target_value_: env.get_reward()})
+            grad_vars = sess.run(self.grad_vars,
+                                 feed_dict={
+                                     self.neural_network.feature_vector_: feature_vector,
+                                     self.neural_network.target_value_: env.get_reward()}
+                                 )
+            grads, _ = zip(*grad_vars)
+            self.update_traces(grads)
+            sess.run(self.apply_grads,
+                     feed_dict={trace_accum_placeholder: trace_accum
+                                for trace_accum_placeholder, trace_accum in
+                                zip(self.trace_accum_placeholders, self.trace_accums)}
+                     )
             if self.verbose:
-                print("turn count:", sess.run(self.game_turn_count))
+                print("turn count:", turn_count)
                 print("global episode count:", sess.run(self.global_episode_count))
-            sess.run([self.reset_game_turn_count_op, self.increment_global_episode_count_op])
-
-        if self.name == 'agent_0':
-            summary_writer.close()
-            summary_writer.close()
+            sess.run(self.increment_global_episode_count_op)
 
     def test(self, sess, env):
         def parse_tests(fn):

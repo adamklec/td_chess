@@ -4,7 +4,7 @@ import numpy as np
 
 
 class ChessNeuralNetwork(object):
-    def __init__(self, name=None):
+    def __init__(self):
         with tf.variable_scope('neural_network'):
             self.feature_vector_ = tf.placeholder(tf.float32, shape=[None, 1025], name='feature_vector_')
 
@@ -21,9 +21,8 @@ class ChessNeuralNetwork(object):
             self.target_value_ = tf.placeholder(tf.float32, shape=[], name='target_value_placeholder')
             self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope(). name)
 
-        if name == 'agent_0':
-            tf.summary.histogram(relu.op.name, relu, collections=['turn_summaries'])
-            tf.summary.histogram(self.value.op.name, self.value, collections=['turn_summaries'])
+        tf.summary.histogram(relu.op.name, relu, collections=['turn_summaries'])
+        tf.summary.histogram(self.value.op.name, self.value, collections=['turn_summaries'])
 
     @staticmethod
     def make_feature_vector(board):

@@ -3,6 +3,7 @@ from game import Chess
 from multiprocessing import Process
 import time
 import tensorflow as tf
+from network import ChessNeuralNetwork
 
 
 def work(job_name, task_index, ps_hosts, worker_hosts, checkpoint_dir):
@@ -20,8 +21,11 @@ def work(job_name, task_index, ps_hosts, worker_hosts, checkpoint_dir):
         with tf.device(tf.train.replica_device_setter(
                 worker_device="/job:worker/task:%d" % task_index,
                 cluster=cluster)):
+            network = ChessNeuralNetwork()
             global_episode_count = tf.contrib.framework.get_or_create_global_step()
-            agent = NeuralNetworkAgent('agent_' + str(task_index), global_episode_count, verbose=True)
+
+        agent_name = 'agent_' + str(task_index)
+        agent = NeuralNetworkAgent(network, agent_name, global_episode_count, verbose=True)
 
         hooks = [tf.train.StopAtStepHook(last_step=1000)]
         with tf.train.MonitoredTrainingSession(master=server.target,
@@ -30,11 +34,11 @@ def work(job_name, task_index, ps_hosts, worker_hosts, checkpoint_dir):
                                                hooks=hooks) as mon_sess:
 
             while not mon_sess.should_stop():
-                agent.train(mon_sess, Chess(), 100, 0.05, pretrain=False)
+                    agent.train(mon_sess, Chess(), 100, 0.05, pretrain=False)
 
 if __name__ == "__main__":
-    ps_hosts = ['localhost:2222', 'localhost:2223']
-    worker_hosts = ['localhost:2224', 'localhost:2225', 'localhost:2226', 'localhost:2227']
+    ps_hosts = ['localhost:2222']
+    worker_hosts = ['localhost:2223', 'localhost:2224', 'localhost:2225', 'localhost:2226']
     checkpoint_dir = "log/" + str(int(time.time()))
 
     processes = []
