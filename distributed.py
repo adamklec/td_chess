@@ -6,8 +6,8 @@ import tensorflow as tf
 from network import ChessNeuralNetwork
 
 
-def work(job_name, task_index, ps_hosts, worker_hosts, checkpoint_dir):
-    cluster = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
+def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_dir):
+    cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "worker": worker_hosts})
 
     server = tf.train.Server(cluster,
                              job_name=job_name,
@@ -16,8 +16,7 @@ def work(job_name, task_index, ps_hosts, worker_hosts, checkpoint_dir):
     if job_name == "ps":
         server.join()
 
-    elif job_name == "worker":
-
+    else:
         with tf.device(tf.train.replica_device_setter(
                 worker_device="/job:worker/task:%d" % task_index,
                 cluster=cluster)):
@@ -26,30 +25,43 @@ def work(job_name, task_index, ps_hosts, worker_hosts, checkpoint_dir):
 
         agent_name = 'agent_' + str(task_index)
         agent = NeuralNetworkAgent(network, agent_name, global_episode_count, verbose=True)
+        summary_op = tf.summary.merge_all()
 
         hooks = [tf.train.StopAtStepHook(last_step=1000)]
         with tf.train.MonitoredTrainingSession(master=server.target,
-                                               is_chief=(task_index == 0),
+                                               is_chief=(task_index == 0 and job_name == 'worker'),
                                                checkpoint_dir=checkpoint_dir,
-                                               hooks=hooks) as mon_sess:
+                                               hooks=hooks,
+                                               scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
+            if job_name == "worker":
+                while not mon_sess.should_stop():
+                    agent.train(mon_sess, Chess(), 100, 0.05)
 
-            while not mon_sess.should_stop():
-                    agent.train(mon_sess, Chess(), 100, 0.05, pretrain=False)
+            elif job_name == "tester":
+                while not mon_sess.should_stop():
+                    agent.test(mon_sess, Chess())
+
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:2222']
-    worker_hosts = ['localhost:2223', 'localhost:2224', 'localhost:2225', 'localhost:2226']
+    tester_hosts = ['localhost:2223']
+    worker_hosts = ['localhost:2224', 'localhost:2225', 'localhost:2226', 'localhost:2227']
     checkpoint_dir = "log/" + str(int(time.time()))
 
     processes = []
 
     for task_idx, ps_host in enumerate(ps_hosts):
-        p = Process(target=work, args=('ps', task_idx, ps_hosts, worker_hosts, checkpoint_dir,))
+        p = Process(target=work, args=('ps', task_idx, ps_hosts, tester_hosts, worker_hosts, checkpoint_dir,))
+        processes.append(p)
+        p.start()
+
+    for task_idx, tester_host in enumerate(tester_hosts):
+        p = Process(target=work, args=('tester', task_idx, ps_hosts, tester_hosts, worker_hosts, checkpoint_dir,))
         processes.append(p)
         p.start()
 
     for task_idx, worker_host in enumerate(worker_hosts):
-        p = Process(target=work, args=('worker', task_idx, ps_hosts, worker_hosts, checkpoint_dir,))
+        p = Process(target=work, args=('worker', task_idx, ps_hosts, tester_hosts, worker_hosts, checkpoint_dir,))
         processes.append(p)
         p.start()
         time.sleep(2)

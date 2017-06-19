@@ -21,8 +21,11 @@ class ChessNeuralNetwork(object):
             self.target_value_ = tf.placeholder(tf.float32, shape=[], name='target_value_placeholder')
             self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope(). name)
 
-        tf.summary.histogram(relu.op.name, relu, collections=['turn_summaries'])
-        tf.summary.histogram(self.value.op.name, self.value, collections=['turn_summaries'])
+        for tvar in self.trainable_variables:
+            tf.summary.histogram(tvar.op.name, tvar)
+
+            # tf.summary.histogram(relu.op.name, relu, collections=['turn_summaries'])
+        # tf.summary.histogram(self.value.op.name, self.value, collections=['turn_summaries'])
 
     @staticmethod
     def make_feature_vector(board):
