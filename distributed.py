@@ -27,7 +27,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
         agent = NeuralNetworkAgent(network, agent_name, global_episode_count, verbose=True)
         summary_op = tf.summary.merge_all()
 
-        hooks = [tf.train.StopAtStepHook(last_step=1000)]
+        hooks = [tf.train.StopAtStepHook(last_step=10000)]
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=(task_index == 0 and job_name == 'worker'),
                                                checkpoint_dir=checkpoint_dir,
@@ -35,7 +35,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "worker":
                 while not mon_sess.should_stop():
-                    agent.train(mon_sess, Chess(), 100, 0.05)
+                    agent.train(mon_sess, Chess(), 100, 0.05, pretrain=True)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
