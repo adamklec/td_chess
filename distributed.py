@@ -32,6 +32,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
                                                is_chief=(task_index == 0 and job_name == 'worker'),
                                                checkpoint_dir=checkpoint_dir,
                                                hooks=hooks,
+                                               save_summaries_steps=1,
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "worker":
                 while not mon_sess.should_stop():

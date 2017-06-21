@@ -23,17 +23,33 @@ class NeuralNetworkAgent(object):
         self.set_game_turn_count_op = tf.assign(self.game_turn_count, self.game_turn_count_, name='set_game_turn_count')
         tf.summary.scalar("game_turn_count", self.game_turn_count)
 
-        self.test_val_ = tf.placeholder(tf.int32, name='test_total_')
-        self.test_total = tf.Variable(0, name='test_total')
-        self.set_test_total_op = tf.assign(self.test_total, self.test_val_, name='increment_test_total')
-        tf.summary.scalar("test_total", self.test_total)
+        self.test_score_ = tf.placeholder(tf.int32, name='test_score_')
+        self.test_score = tf.Variable(0, name='test_total')
+        self.set_test_score_op = self.test_score.assign(self.test_score_)
+        tf.summary.scalar("test_score", self.test_score)
 
         self.neural_network = network
 
         self.traces = []
-        for var in self.neural_network.trainable_variables:
-            trace = np.zeros(var.get_shape())
-            self.traces.append(trace)
+        set_trace_tensor_ops = []
+        self.trace_tensor_placeholders = []
+
+        with tf.variable_scope('traces'):
+            for var in self.neural_network.trainable_variables:
+                trace = np.zeros(var.get_shape())
+                self.traces.append(trace)
+
+                trace_tensor = tf.Variable(initial_value=trace, dtype=tf.float32, trainable=False, name=var.op.name+'_trace')
+
+                trace_tensor_ = tf.placeholder(tf.float32, shape=var.get_shape(),  name=var.op.name+'_trace_')
+                self.trace_tensor_placeholders.append(trace_tensor_)
+
+                set_trace_tensor_op = trace_tensor.assign(trace_tensor_)
+                set_trace_tensor_ops.append(set_trace_tensor_op)
+
+                tf.summary.histogram(var.op.name+'_trace', trace_tensor)
+
+        self.set_trace_tensors_op = tf.group(*set_trace_tensor_ops, name='set_trace_tensors_op')
 
         self.lamda = .7
 
@@ -44,9 +60,6 @@ class NeuralNetworkAgent(object):
 
         with tf.variable_scope('turn_count'):
             self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
-
-            # self.episode_summary_op = tf.summary.merge(tf.get_collection('episode_summaries'))
-            # self.turn_summary_op = tf.summary.merge(tf.get_collection('turn_summaries'))
 
     def update_traces(self, grads):
         for idx in range(len(grads)):
@@ -160,6 +173,9 @@ class NeuralNetworkAgent(object):
                       self.increment_global_episode_count_op],
                      feed_dict={self.game_turn_count_: turn_count})
 
+            sess.run(self.set_trace_tensors_op, feed_dict={trace_tensor_: trace
+                                                           for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
+
     def test(self, sess, env):
         def parse_tests(fn):
             with open(fn, "r") as f:
@@ -207,11 +223,10 @@ class NeuralNetworkAgent(object):
                     correct_count += 1
                 tot += reward
 
-        sess.run(self.set_test_total_op, feed_dict={self.test_val_: tot})
+        sess.run(self.set_test_score_op, feed_dict={self.test_score_: tot})
         global_episode_count = sess.run(self.global_episode_count)
         print("EPISODE", global_episode_count, "TEST TOTAL:", tot)
         return tot
-
 
     #  TODO: CALL THIS FUNCTION DURING TRAINING
     def get_move(self, sess, env):
