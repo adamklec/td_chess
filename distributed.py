@@ -46,7 +46,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
 if __name__ == "__main__":
     ps_hosts = ['localhost:2222']
     tester_hosts = ['localhost:2223']
-    worker_hosts = ['localhost:2224', 'localhost:2225', 'localhost:2226', 'localhost:2227']
+    worker_hosts = ['localhost:2224']  # , 'localhost:2225', 'localhost:2226', 'localhost:2227']
     checkpoint_dir = "log/" + str(int(time.time()))
 
     processes = []

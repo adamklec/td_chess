@@ -2,7 +2,8 @@ import numpy as np
 from copy import deepcopy
 import chess
 from chess.pgn import read_game
-
+from random import choice
+from anytree import Node, RenderTree
 
 class Chess(object):
     def __init__(self, board=None):
@@ -92,4 +93,12 @@ def board_generator(pgn):
         else:
             pgn.seek(0)
 
+
+def make_random_move(board):
+    random_move = choice(list(board.legal_moves))
+    board.push(random_move)
+    return board
+
+def make_tree(board, depth):
+    legal_moves = board.legal_moves
 

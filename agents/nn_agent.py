@@ -5,7 +5,7 @@ from random import choice
 from chess import Board
 from os import listdir
 from network import ChessNeuralNetwork
-
+from anytree import Node
 
 class NeuralNetworkAgent(object):
     def __init__(self, network, name, global_episode_count, checkpoint=None, verbose=False,
@@ -212,24 +212,34 @@ class NeuralNetworkAgent(object):
         test_count = 0
         correct_count = 0
         for filename in filenames:
+            print(filename)
             df = parse_tests(path + filename)
             for idx, (fen, c0) in enumerate(zip(df.fen, df.c0)):
                 board = Board(fen=fen)
                 env.reset(board=board)
-                move = self.get_move(sess, env)
+                move = self.get_move_ab(env)
                 reward = c0.get(board.san(move), 0)
                 test_count += 1
                 if reward > 0:
                     correct_count += 1
                 tot += reward
 
-        sess.run(self.set_test_score_op, feed_dict={self.test_score_: tot})
-        global_episode_count = sess.run(self.global_episode_count)
-        print("EPISODE", global_episode_count, "TEST TOTAL:", tot)
+        # sess.run(self.set_test_score_op, feed_dict={self.test_score_: tot})
+        # global_episode_count = sess.run(self.global_episode_count)
+        # print("EPISODE", global_episode_count, "TEST TOTAL:", tot)
         return tot
+
+
+    def get_move_ab(self, env):
+        node = Node('root', board=env.board)
+        v, n = self.alpha_beta(node, 2, -100000, 100000, self.simple_value)
+        move = n.path[1].move
+        return move
+
 
     #  TODO: CALL THIS FUNCTION DURING TRAINING
     def get_move(self, sess, env):
+
         legal_moves = env.get_legal_moves()
 
         candidate_envs = [env.clone() for _ in legal_moves]
@@ -254,3 +264,38 @@ class NeuralNetworkAgent(object):
         move = legal_moves[move_idx]
 
         return move
+
+    def alpha_beta(self, node, depth, alpha, beta, value_function):
+        if depth == 0 or node.board.is_game_over():
+            return value_function(node.board), node
+
+        legal_moves = list(node.board.legal_moves)
+        child_boards = [node.board.copy() for _ in legal_moves]
+        children = []
+        for idx in range(len(node.board.legal_moves)):
+            child_boards[idx].push(legal_moves[idx])
+            child = Node(str(legal_moves[idx]), parent=node, board=child_boards[idx], move=legal_moves[idx])
+            children.append(child)
+        n = node
+        if node.board.turn:
+            v = -100000
+            for child in children:
+                vv, nn = self.alpha_beta(child, depth - 1, alpha, beta, value_function)
+                if vv > v:
+                    v = vv
+                    n = nn
+                alpha = max(alpha, v)
+                if beta <= alpha:
+                    break  # (* β cut-off *)
+            return v, n
+        else:
+            v = 100000
+            for child in children:
+                vv, nn = self.alpha_beta(child, depth - 1, alpha, beta, value_function)
+                if vv < v:
+                    v = vv
+                    n = nn
+                beta = min(beta, v)
+                if beta <= alpha:
+                    break  # (* α cut-off *)
+            return v, n
