@@ -70,15 +70,22 @@ class NeuralNetworkAgent(object):
             self.traces[idx][:] = 0
 
     @staticmethod
-    def simple_value(board):
+    def simple_value_function(board):
         values = [1, 3, 3, 5, 9]
         s = 0
         for i, v in enumerate(values):
             s += ChessNeuralNetwork.pad_bitmask(board.pieces_mask(i + 1, 1)).sum() * v
             s -= ChessNeuralNetwork.pad_bitmask(board.pieces_mask(i + 1, 0)).sum() * v
-        return s
+        return np.tanh(s)
 
-    def train(self, sess, env, num_episode, epsilon, pretrain=False):
+    def network_value_function(self, sess):
+        def f(board):
+            value = sess.run(self.neural_network.value,
+                             feed_dict={self.neural_network.feature_vector_: self.neural_network.make_feature_vector(board)})
+            return value
+        return f
+
+    def train(self, sess, env, num_episode, epsilon):
 
         for episode in range(num_episode):
             turn_count = 0
@@ -90,36 +97,34 @@ class NeuralNetworkAgent(object):
 
             while env.get_reward() is None:
 
-                legal_moves = env.get_legal_moves()
-                candidate_envs = [env.clone() for _ in legal_moves]
-                for idx in range(len(candidate_envs)):
-                    candidate_envs[idx].make_move(legal_moves[idx])
+                # legal_moves = env.get_legal_moves()
+                # candidate_envs = [env.clone() for _ in legal_moves]
+                # candidate_boards = []
+                # for idx in range(len(legal_moves)):
+                #     candidate_envs[idx].make_move(legal_moves[idx])
+                #     candidate_boards.append(candidate_envs[idx].board)
+                #
+                # candidate_boards = [candidate_env.board for candidate_env in candidate_envs]
+                #
+                # candidate_feature_vectors = np.vstack(
+                #     [ChessNeuralNetwork.make_feature_vector(candidate_board)
+                #      for candidate_board in candidate_boards]
+                # )
+                # candidate_values = sess.run(self.neural_network.value,
+                #                             feed_dict={
+                #                                 self.neural_network.feature_vector_: candidate_feature_vectors}
+                #                             )
+                #
+                # if env.board.turn:
+                #     move_idx = np.argmax(candidate_values)
+                #     next_value = np.max(candidate_values)
+                # else:
+                #     move_idx = np.argmin(candidate_values)
+                #     next_value = np.min(candidate_values)
 
-                candidate_boards = [candidate_env.board for candidate_env in candidate_envs]
-
-                if pretrain:
-                    simple_values = [self.simple_value(board) for board in candidate_boards]
-                    candidate_values = [np.tanh(simple_value/5 + .2 * np.random.rand()) for simple_value in simple_values]
-
-                else:
-                    for candidate_env, legal_move in zip(candidate_envs, legal_moves):
-                        candidate_env.make_move(legal_move)
-
-                    candidate_feature_vectors = np.vstack(
-                        [ChessNeuralNetwork.make_feature_vector(candidate_board)
-                         for candidate_board in candidate_boards]
-                    )
-                    candidate_values = sess.run(self.neural_network.value,
-                                                feed_dict={
-                                                    self.neural_network.feature_vector_: candidate_feature_vectors}
-                                                )
-
-                if env.board.turn:
-                    move_idx = np.argmax(candidate_values)
-                    next_value = np.max(candidate_values)
-                else:
-                    move_idx = np.argmin(candidate_values)
-                    next_value = np.min(candidate_values)
+                #
+                # move, next_value = self.get_move(sess, env)
+                move, next_value = self.get_move_ab(env, self.network_value_function(sess))
 
                 feature_vector = self.neural_network.make_feature_vector(env.board)
                 value, grad_vars = sess.run([self.neural_network.value,
@@ -141,8 +146,6 @@ class NeuralNetworkAgent(object):
                 if np.random.rand() < epsilon:
                     move = choice(env.get_legal_moves())
                     self.reset_traces()
-                else:
-                    move = legal_moves[move_idx]
 
                 # push the move onto the environment
                 env.make_move(move)
@@ -166,7 +169,7 @@ class NeuralNetworkAgent(object):
                                 zip(self.delta_trace_placeholders, self.traces)}
                      )
             if self.verbose:
-                print("turn count:", turn_count)
+                print("turn count:", turn_count, 'reward:', reward)
                 print("global episode count:", sess.run(self.global_episode_count))
 
             sess.run([self.set_game_turn_count_op,
@@ -217,27 +220,25 @@ class NeuralNetworkAgent(object):
             for idx, (fen, c0) in enumerate(zip(df.fen, df.c0)):
                 board = Board(fen=fen)
                 env.reset(board=board)
-                move = self.get_move_ab(env)
+                move, _ = self.get_move_ab(env, self.network_value_function(sess))
+                # move, _ = self.get_move_ab(env, self.simple_value_function)
                 reward = c0.get(board.san(move), 0)
                 test_count += 1
                 if reward > 0:
                     correct_count += 1
                 tot += reward
 
-        # sess.run(self.set_test_score_op, feed_dict={self.test_score_: tot})
-        # global_episode_count = sess.run(self.global_episode_count)
-        # print("EPISODE", global_episode_count, "TEST TOTAL:", tot)
+        sess.run(self.set_test_score_op, feed_dict={self.test_score_: tot})
+        global_episode_count = sess.run(self.global_episode_count)
+        print("EPISODE", global_episode_count, "TEST TOTAL:", tot)
         return tot
 
-
-    def get_move_ab(self, env):
+    def get_move_ab(self, env, value_function):
         node = Node('root', board=env.board)
-        v, n = self.alpha_beta(node, 2, -100000, 100000, self.simple_value)
-        move = n.path[1].move
-        return move
+        leaf_value, leaf_node = self.alpha_beta(node, 1, -1, 1, value_function)
+        move = leaf_node.path[1].move
+        return move, leaf_value[0, 0]
 
-
-    #  TODO: CALL THIS FUNCTION DURING TRAINING
     def get_move(self, sess, env):
 
         legal_moves = env.get_legal_moves()
@@ -258,12 +259,14 @@ class NeuralNetworkAgent(object):
 
         if env.board.turn:
             move_idx = np.argmax(candidate_values)
+            next_value = np.max(candidate_values)
         else:
             move_idx = np.argmin(candidate_values)
+            next_value = np.min(candidate_values)
 
         move = legal_moves[move_idx]
 
-        return move
+        return move, next_value
 
     def alpha_beta(self, node, depth, alpha, beta, value_function):
         if depth == 0 or node.board.is_game_over():

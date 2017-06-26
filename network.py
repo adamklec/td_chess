@@ -9,23 +9,23 @@ class ChessNeuralNetwork(object):
             self.feature_vector_ = tf.placeholder(tf.float32, shape=[None, 1025], name='feature_vector_')
 
             with tf.variable_scope('layer_1'):
-                W_1 = tf.get_variable('W_1', initializer=tf.truncated_normal([1025, 100], stddev=0.1))
-                b_1 = tf.get_variable('b_1', shape=[100], initializer=tf.constant_initializer(0.1))
-                relu = tf.nn.relu(tf.matmul(self.feature_vector_, W_1) + b_1, name='relu')
+                W_1 = tf.get_variable('W_1', initializer=self.init_W_1())
+                b_1 = tf.get_variable('b_1', shape=[100], initializer=tf.constant_initializer(10.0))
+                hidden = tf.nn.relu(tf.matmul(self.feature_vector_, W_1) + b_1, name='hidden')
 
             with tf.variable_scope('layer_2'):
-                W_2 = tf.get_variable('W_2', initializer=tf.truncated_normal([100, 1], stddev=0.1))
-                b_2 = tf.get_variable('b_2', shape=[1],  initializer=tf.constant_initializer(0.0))
-                self.value = tf.nn.tanh(tf.matmul(relu, W_2) + b_2, name='tanh')
+                W_2 = tf.get_variable('W_2', initializer=self.init_W_2())
+                b_2 = tf.get_variable('b_2', shape=[1],  initializer=tf.constant_initializer(-10.0))
+                self.value = tf.nn.tanh(tf.matmul(hidden, W_2) + b_2, name='value')
 
             self.target_value_ = tf.placeholder(tf.float32, shape=[], name='target_value_placeholder')
-            self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope(). name)
+            self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope().name)
 
         for tvar in self.trainable_variables:
             tf.summary.histogram(tvar.op.name, tvar)
 
             # tf.summary.histogram(relu.op.name, relu, collections=['turn_summaries'])
-        # tf.summary.histogram(self.value.op.name, self.value, collections=['turn_summaries'])
+            # tf.summary.histogram(self.value.op.name, self.value, collections=['turn_summaries'])
 
     @staticmethod
     def make_feature_vector(board):
@@ -38,7 +38,7 @@ class ChessNeuralNetwork(object):
 
         # en passant target squares
         if board.ep_square:
-            piece_matrix[board.ep_square, len(chess.PIECE_TYPES), int(board.turn)] = 1
+            piece_matrix[board.ep_square, -1, int(board.turn)] = 1
 
         reshaped_piece_matrix = piece_matrix.reshape((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)))
         feature_array = np.zeros((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 2))
@@ -72,3 +72,18 @@ class ChessNeuralNetwork(object):
         for from_var, to_var in zip(from_vars, to_vars):
             op_holder.append(to_var.assign(from_var))
         return op_holder
+
+    def init_W_1(self):
+        W_1 = np.zeros((1025, 100))
+        pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
+        values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
+        for piece, value in zip(pieces, values):
+            fen = '/'.join([8 * piece for _ in range(8)]) + ' b -- - 0 1'
+            board = chess.Board(fen)
+            W_1[ChessNeuralNetwork.make_feature_vector(board)[0] == 1, 0] = value
+        return tf.constant(W_1, dtype=tf.float32)
+
+    def init_W_2(self):
+        W_2 = np.zeros((100, 1))
+        W_2[0] = 1
+        return tf.constant(W_2, dtype=tf.float32)

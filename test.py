@@ -6,8 +6,8 @@ from network import ChessNeuralNetwork
 
 def main():
     with tf.Session() as sess:
-        load_model = False
-        model_path = "/Users/adam/Documents/projects/td_chess/model"
+        # load_model = False
+        # model_path = "/Users/adam/Documents/projects/td_chess/model"
 
         network = ChessNeuralNetwork()
         global_episode_count = tf.contrib.framework.get_or_create_global_step()
@@ -20,7 +20,7 @@ def main():
         #     ckpt = tf.train.get_checkpoint_state(model_path)
         #     saver.restore(sess, ckpt.model_checkpoint_path)
         # else:
-        #     sess.run(tf.global_variables_initializer())
+        sess.run(tf.global_variables_initializer())
 
         env = Chess()
         tot = agent.test(sess, env)
