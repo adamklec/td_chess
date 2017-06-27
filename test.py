@@ -12,7 +12,7 @@ def main():
         network = ChessNeuralNetwork()
         global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
-        agent = NeuralNetworkAgent(network, 'agent_0', global_episode_count)
+        agent = NeuralNetworkAgent(network, 'agent_0', global_episode_count, load_tests=True)
         # saver = tf.train.Saver(max_to_keep=5)
         #
         # if load_model == True:

@@ -24,7 +24,11 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
             global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
         agent_name = 'agent_' + str(task_index)
-        agent = NeuralNetworkAgent(network, agent_name, global_episode_count, verbose=True)
+        if job_name == "tester":
+            agent = NeuralNetworkAgent(network, agent_name, global_episode_count, verbose=True, load_tests=True)
+        else:
+            agent = NeuralNetworkAgent(network, agent_name, global_episode_count, verbose=True, load_tests=False)
+
         summary_op = tf.summary.merge_all()
 
         hooks = [tf.train.StopAtStepHook(last_step=10000)]
@@ -36,7 +40,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "worker":
                 while not mon_sess.should_stop():
-                    agent.train(mon_sess, Chess(), 100, 0.05)
+                    agent.train(mon_sess, Chess(load_pgn=True), 100, 0.05)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
@@ -46,7 +50,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
 if __name__ == "__main__":
     ps_hosts = ['localhost:2222']
     tester_hosts = ['localhost:2223']
-    worker_hosts = ['localhost:2224']  # , 'localhost:2225', 'localhost:2226', 'localhost:2227']
+    worker_hosts = ['localhost:2224', 'localhost:2225', 'localhost:2226', 'localhost:2227']
     checkpoint_dir = "log/" + str(int(time.time()))
 
     processes = []

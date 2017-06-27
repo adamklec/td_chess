@@ -5,16 +5,33 @@ from chess.pgn import read_game
 from random import choice
 from anytree import Node, RenderTree
 
+
 class Chess(object):
-    def __init__(self, board=None):
+    def __init__(self, board=None, random_position=False, load_pgn=False):
+        self.random_position = random_position
+        self.load_pgn = load_pgn
+
+        if self.load_pgn:
+            pgn = open("millionbase-2.22.pgn")
+            self.board_generator = board_generator(pgn)
+        else:
+            self.board_generator = None
+
         if board is None:
-            self.board = chess.Board()
+            if not random_position:
+                self.board = chess.Board()
+            else:
+
+                self.board = chess.Board()
         else:
             self.board = board
 
     def reset(self, board=None):
         if board is None:
-            self.board = chess.Board()
+            if self.random_position:
+                self.board = self.board_generator.__next__()
+            else:
+                self.board = chess.Board()
         else:
             self.board = board
 
@@ -45,38 +62,65 @@ class Chess(object):
         legal_moves = list(board.legal_moves)
         return legal_moves
 
-    def get_candidate_states(self):
-        legal_moves = self.board.legal_moves
-        candidate_states = []
-        for legal_move in legal_moves:
-            candidate_state = self.clone()
-            candidate_state.board.push(legal_move)
-            candidate_states.append(candidate_state)
-        return candidate_states
-
-    def play(self, players, verbose=False):
-        while self.get_reward() is None:
-            if verbose:
-                print(self.board)
-                print('\n')
-            player = players[int(not self.board.turn)]
-            move = player.get_move(self)
-            self.make_move(move)
-
-        reward = self.get_reward()
-        if verbose:
-            print(self.board)
-            if reward == 1:
-                print("X won!")
-            elif reward == -1:
-                print("O won!")
-            else:
-                print("draw")
-        return self.get_reward()
-
     def clone(self):
         return Chess(board=deepcopy(self.board))
 
+    @staticmethod
+    def simple_value_function(board):
+        values = [1, 3, 3, 5, 9]
+        s = 0
+        for i, v in enumerate(values):
+            s += Chess.pad_bitmask(board.pieces_mask(i + 1, 1)).sum() * v
+            s -= Chess.pad_bitmask(board.pieces_mask(i + 1, 0)).sum() * v
+        return np.tanh(s / 5)
+
+    @staticmethod
+    def make_feature_vector(board):
+        piece_matrix = np.zeros((64, len(chess.PIECE_TYPES) + 1, len(chess.COLORS)))
+
+        # piece positions
+        for piece in chess.PIECE_TYPES:
+            for color in chess.COLORS:
+                piece_matrix[:, piece, int(color)] = Chess.pad_bitmask(board.pieces_mask(piece, color))
+
+        # en passant target squares
+        if board.ep_square:
+            piece_matrix[board.ep_square, -1, int(board.turn)] = 1
+
+        reshaped_piece_matrix = piece_matrix.reshape((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)))
+        feature_array = np.zeros((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 2))
+        feature_array[:, :-2] = reshaped_piece_matrix
+
+        # empty squares
+        empty_squares = (reshaped_piece_matrix.sum(axis=1) == 0)
+        feature_array[empty_squares, :-2] = 1
+
+        # castling rights
+        feature_array[:, -1] = Chess.pad_bitmask(board.castling_rights)
+
+        feature_vector = np.zeros((1, 1025))
+        feature_vector[0, :-1] = np.reshape(feature_array, (1024,))
+        feature_vector[0, -1] = board.turn
+
+        return feature_vector
+
+    @staticmethod
+    def pad_bitmask(mask):
+        mask = [int(s) for s in list(bin(mask)[2:])]
+        while len(mask) < 64:
+            mask.insert(0, 0)
+        return np.array(mask)
+
+    @staticmethod
+    def get_simple_value_weights():
+        W_1 = np.zeros((1025, 1))
+        pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
+        values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
+        for piece, value in zip(pieces, values):
+            fen = '/'.join([8 * piece for _ in range(8)]) + ' b -- - 0 1'
+            board = chess.Board(fen)
+            W_1[Chess.make_feature_vector(board)[0] == 1, 0] = value
+        return W_1
 
 def board_generator(pgn):
     while True:
@@ -92,7 +136,6 @@ def board_generator(pgn):
             yield node.board()
         else:
             pgn.seek(0)
-
 
 def make_random_move(board):
     random_move = choice(list(board.legal_moves))

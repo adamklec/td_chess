@@ -6,10 +6,11 @@ from chess import Board
 from os import listdir
 from network import ChessNeuralNetwork
 from anytree import Node
+from game import Chess
 
 class NeuralNetworkAgent(object):
     def __init__(self, network, name, global_episode_count, checkpoint=None, verbose=False,
-                 model_path="/Users/adam/Documents/projects/td_chess/model"):
+                 model_path="/Users/adam/Documents/projects/td_chess/model", load_tests=False):
         self.verbose = verbose
         self.trainer = tf.train.AdamOptimizer()
         self.name = name
@@ -17,6 +18,13 @@ class NeuralNetworkAgent(object):
         self.model_path = model_path
 
         self.global_episode_count = global_episode_count
+        self.load_tests = load_tests
+
+        if self.load_tests:
+            self.tests =[]
+            path = "/Users/adam/Documents/projects/td_chess/STS[1-13]/"
+            for filename in listdir(path):
+                self.tests.append((NeuralNetworkAgent.parse_tests(path + filename), filename))
 
         self.game_turn_count = tf.Variable(0, name='game_turn_count')
         self.game_turn_count_ = tf.placeholder(tf.int32, name='game_turn_count_')
@@ -69,19 +77,10 @@ class NeuralNetworkAgent(object):
         for idx in range(len(self.traces)):
             self.traces[idx][:] = 0
 
-    @staticmethod
-    def simple_value_function(board):
-        values = [1, 3, 3, 5, 9]
-        s = 0
-        for i, v in enumerate(values):
-            s += ChessNeuralNetwork.pad_bitmask(board.pieces_mask(i + 1, 1)).sum() * v
-            s -= ChessNeuralNetwork.pad_bitmask(board.pieces_mask(i + 1, 0)).sum() * v
-        return np.tanh(s)
-
     def network_value_function(self, sess):
         def f(board):
             value = sess.run(self.neural_network.value,
-                             feed_dict={self.neural_network.feature_vector_: self.neural_network.make_feature_vector(board)})
+                             feed_dict={self.neural_network.feature_vector_: Chess.make_feature_vector(board)})
             return value
         return f
 
@@ -89,44 +88,14 @@ class NeuralNetworkAgent(object):
 
         for episode in range(num_episode):
             turn_count = 0
-            if self.verbose:
-                print(self.name, 'episode:', episode)
 
             self.reset_traces()
             env.reset()
 
             while env.get_reward() is None:
-
-                # legal_moves = env.get_legal_moves()
-                # candidate_envs = [env.clone() for _ in legal_moves]
-                # candidate_boards = []
-                # for idx in range(len(legal_moves)):
-                #     candidate_envs[idx].make_move(legal_moves[idx])
-                #     candidate_boards.append(candidate_envs[idx].board)
-                #
-                # candidate_boards = [candidate_env.board for candidate_env in candidate_envs]
-                #
-                # candidate_feature_vectors = np.vstack(
-                #     [ChessNeuralNetwork.make_feature_vector(candidate_board)
-                #      for candidate_board in candidate_boards]
-                # )
-                # candidate_values = sess.run(self.neural_network.value,
-                #                             feed_dict={
-                #                                 self.neural_network.feature_vector_: candidate_feature_vectors}
-                #                             )
-                #
-                # if env.board.turn:
-                #     move_idx = np.argmax(candidate_values)
-                #     next_value = np.max(candidate_values)
-                # else:
-                #     move_idx = np.argmin(candidate_values)
-                #     next_value = np.min(candidate_values)
-
-                #
-                # move, next_value = self.get_move(sess, env)
                 move, next_value = self.get_move_ab(env, self.network_value_function(sess))
 
-                feature_vector = self.neural_network.make_feature_vector(env.board)
+                feature_vector = Chess.make_feature_vector(env.board)
                 value, grad_vars = sess.run([self.neural_network.value,
                                              self.grad_vars],
                                             feed_dict={
@@ -153,7 +122,7 @@ class NeuralNetworkAgent(object):
 
             # update traces with final state and reward
             reward = env.get_reward()
-            feature_vector = self.neural_network.make_feature_vector(env.board)
+            feature_vector = Chess.make_feature_vector(env.board)
             value, grad_vars = sess.run([self.neural_network.value,
                                          self.grad_vars],
                                         feed_dict={
@@ -169,8 +138,8 @@ class NeuralNetworkAgent(object):
                                 zip(self.delta_trace_placeholders, self.traces)}
                      )
             if self.verbose:
-                print("turn count:", turn_count, 'reward:', reward)
-                print("global episode count:", sess.run(self.global_episode_count))
+                print(self.name, 'episode:', episode, "turn count:", turn_count, 'reward:', reward)
+                print("global episode:", sess.run(self.global_episode_count))
 
             sess.run([self.set_game_turn_count_op,
                       self.increment_global_episode_count_op],
@@ -179,44 +148,42 @@ class NeuralNetworkAgent(object):
             sess.run(self.set_trace_tensors_op, feed_dict={trace_tensor_: trace
                                                            for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
 
+    @staticmethod
+    def parse_tests(fn):
+        with open(fn, "r") as f:
+            tests = f.readlines()
+
+        dicts = []
+        data = [[s for s in test.split('; ')] for test in tests]
+        for row in data:
+            d = dict()
+            d['fen'] = row[0].split(' bm ')[0] + " 0 0"
+            d['bm'] = row[0].split(' bm ')[1]
+
+            for c in row[1:]:
+                c = c.replace('"', '')
+                c = c.replace(';\n', '')
+                item = c.split(maxsplit=1, sep=" ")
+                d[item[0]] = item[1]
+            dicts.append(d)
+
+        for d in dicts:
+            move_rewards = {}
+            answers = d['c0'].split(',')
+            for answer in answers:
+                move_reward = answer.split('=')
+                move_rewards[move_reward[0].strip()] = int(move_reward[1])
+            d['c0'] = move_rewards
+        df = pd.DataFrame.from_dict(dicts)
+        df = df.set_index('id')
+        return df
+
     def test(self, sess, env):
-        def parse_tests(fn):
-            with open(fn, "r") as f:
-                tests = f.readlines()
-
-            dicts = []
-            data = [[s for s in test.split('; ')] for test in tests]
-            for row in data:
-                d = dict()
-                d['fen'] = row[0].split(' bm ')[0] + " 0 0"
-                d['bm'] = row[0].split(' bm ')[1]
-
-                for c in row[1:]:
-                    c = c.replace('"', '')
-                    c = c.replace(';\n', '')
-                    item = c.split(maxsplit=1, sep=" ")
-                    d[item[0]] = item[1]
-                dicts.append(d)
-
-            for d in dicts:
-                move_rewards = {}
-                answers = d['c0'].split(',')
-                for answer in answers:
-                    move_reward = answer.split('=')
-                    move_rewards[move_reward[0].strip()] = int(move_reward[1])
-                d['c0'] = move_rewards
-            df = pd.DataFrame.from_dict(dicts)
-            df = df.set_index('id')
-            return df
-
-        path = "/Users/adam/Documents/projects/td_chess/STS[1-13]/"
-        filenames = [f for f in listdir(path)]
         tot = 0
         test_count = 0
         correct_count = 0
-        for filename in filenames:
-            print(filename)
-            df = parse_tests(path + filename)
+        for (df, name) in self.tests:
+            print(name)
             for idx, (fen, c0) in enumerate(zip(df.fen, df.c0)):
                 board = Board(fen=fen)
                 env.reset(board=board)
@@ -250,7 +217,7 @@ class NeuralNetworkAgent(object):
         candidate_boards = [candidate_env.board for candidate_env in candidate_envs]
 
         candidate_feature_vectors = np.vstack(
-            [self.neural_network.make_feature_vector(candidate_board)
+            [Chess.make_feature_vector(candidate_board)
              for candidate_board in candidate_boards]
         )
 
