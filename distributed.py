@@ -25,9 +25,19 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
 
         agent_name = 'agent_' + str(task_index)
         if job_name == "tester":
-            agent = NeuralNetworkAgent(network, agent_name, global_episode_count, verbose=True, load_tests=True)
+            agent = NeuralNetworkAgent(agent_name,
+                                       network,
+                                       global_episode_count=global_episode_count,
+                                       verbose=True,
+                                       load_tests=True,
+                                       create_trainer=False)
         else:
-            agent = NeuralNetworkAgent(network, agent_name, global_episode_count, verbose=True, load_tests=False)
+            agent = NeuralNetworkAgent(agent_name,
+                                       network,
+                                       global_episode_count=global_episode_count,
+                                       verbose=True,
+                                       load_tests=False,
+                                       create_trainer=True)
 
         summary_op = tf.summary.merge_all()
 
@@ -40,11 +50,13 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "worker":
                 while not mon_sess.should_stop():
-                    agent.train(mon_sess, Chess(load_pgn=True), 100, 0.05)
+                    env = Chess(load_pgn=True, random_position=True)
+                    agent.train(mon_sess, env, depth=1)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    agent.test(mon_sess, Chess())
+                    env = Chess()
+                    agent.test(mon_sess, env, depth=1)
 
 
 if __name__ == "__main__":

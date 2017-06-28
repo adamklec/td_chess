@@ -3,7 +3,6 @@ from copy import deepcopy
 import chess
 from chess.pgn import read_game
 from random import choice
-from anytree import Node, RenderTree
 
 
 class Chess(object):

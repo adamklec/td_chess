@@ -12,7 +12,7 @@ def main():
         network = ChessNeuralNetwork()
         global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
-        agent = NeuralNetworkAgent(network, 'agent_0', global_episode_count, load_tests=True)
+        agent = NeuralNetworkAgent('agent_0', network, global_episode_count=global_episode_count, load_tests=True)
         # saver = tf.train.Saver(max_to_keep=5)
         #
         # if load_model == True:
@@ -23,7 +23,7 @@ def main():
         sess.run(tf.global_variables_initializer())
 
         env = Chess()
-        tot = agent.test(sess, env)
+        tot = agent.test(sess, env, depth=1)
     print(tot)
 
 

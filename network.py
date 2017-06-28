@@ -29,3 +29,16 @@ class ChessNeuralNetwork(object):
 
         for tvar in self.trainable_variables:
             tf.summary.histogram(tvar.op.name, tvar)
+
+    def get_value(self, board, sess):
+        value = sess.run(self.value,
+                         feed_dict={self.feature_vector_: Chess.make_feature_vector(board)})
+        return value
+
+    def value_function(self, sess):
+        def f(board):
+            value = sess.run(self.value,
+                             feed_dict={self.feature_vector_: Chess.make_feature_vector(board)})
+            return value
+        return f
+
