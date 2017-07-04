@@ -24,7 +24,6 @@ def main():
         #     saver.restore(sess, ckpt.model_checkpoint_path)
         # else:
 
-
         sess.run(tf.global_variables_initializer())
 
         env = Chess()

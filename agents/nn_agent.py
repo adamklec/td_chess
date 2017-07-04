@@ -94,10 +94,13 @@ class NeuralNetworkAgent(object):
     def train(self, sess, depth=1):
         turn_count = 0
         self.reset_traces()
-        self.env.reset()
-
+        self.env.reset()  # creates random board if env.random_position
+        starting_position_move_str = ','.join([str(m) for m in self.env.board.move_stack])
+        selected_moves = []
         while self.env.get_reward() is None:
             move, next_value = self.get_move(sess, self.env, depth)
+            selected_moves.append(move)
+
             feature_vector = Chess.make_feature_vector(self.env.board)
             value, grad_vars = sess.run([self.neural_network.value,
                                          self.grad_vars],
@@ -151,8 +154,10 @@ class NeuralNetworkAgent(object):
         sess.run([self.set_game_turn_count_op, self.increment_global_episode_count_op],
                  feed_dict={self.game_turn_count_: turn_count})
 
+        selected_moves_string = ','.join([str(m) for m in selected_moves])
+
         with open("move_log.txt", "a") as move_log:
-            move_log.write(','.join([str(m) for m in self.env.board.move_stack]) + '\n')
+            move_log.write(starting_position_move_str + '/' + selected_moves_string + '\n')
 
     @staticmethod
     def parse_tests(fn):
