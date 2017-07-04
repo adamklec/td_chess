@@ -1,11 +1,14 @@
-from agents.nn_agent import NeuralNetworkAgent
 import tensorflow as tf
+from agents.nn_agent import NeuralNetworkAgent
 from game import Chess
 from network import ChessNeuralNetwork
+import time
 
 
 def main():
-    with tf.Session() as sess:
+
+    config = tf.ConfigProto(device_count={'GPU': 0})
+    with tf.Session(config=config) as sess:
         # load_model = False
         # model_path = "/Users/adam/Documents/projects/td_chess/model"
 
@@ -20,6 +23,8 @@ def main():
         #     ckpt = tf.train.get_checkpoint_state(model_path)
         #     saver.restore(sess, ckpt.model_checkpoint_path)
         # else:
+
+
         sess.run(tf.global_variables_initializer())
 
         env = Chess()
@@ -28,4 +33,6 @@ def main():
 
 
 if __name__ == "__main__":
+    t0 = time.time()
     main()
+    print('time:', time.time()-t0)

@@ -7,6 +7,7 @@ from network import ChessNeuralNetwork
 
 
 def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_dir):
+
     cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "worker": worker_hosts})
 
     server = tf.train.Server(cluster,
@@ -30,18 +31,21 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
                                        global_episode_count=global_episode_count,
                                        verbose=True,
                                        load_tests=True,
-                                       create_trainer=False)
+                                       create_trainer=False,
+                                       load_pgn=False)
         else:
             agent = NeuralNetworkAgent(agent_name,
                                        network,
                                        global_episode_count=global_episode_count,
                                        verbose=True,
                                        load_tests=False,
-                                       create_trainer=True)
+                                       create_trainer=True,
+                                       load_pgn=True)
 
         summary_op = tf.summary.merge_all()
 
         hooks = [tf.train.StopAtStepHook(last_step=10000)]
+
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=(task_index == 0 and job_name == 'worker'),
                                                checkpoint_dir=checkpoint_dir,
@@ -50,13 +54,11 @@ def work(job_name, task_index, ps_hosts, tester_hosts, worker_hosts, checkpoint_
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "worker":
                 while not mon_sess.should_stop():
-                    env = Chess(load_pgn=True, random_position=True)
-                    agent.train(mon_sess, env, depth=1)
+                    agent.train(mon_sess, depth=2)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    env = Chess()
-                    agent.test(mon_sess, env, depth=1)
+                    agent.test(mon_sess, depth=2)
 
 
 if __name__ == "__main__":
@@ -71,6 +73,7 @@ if __name__ == "__main__":
         p = Process(target=work, args=('ps', task_idx, ps_hosts, tester_hosts, worker_hosts, checkpoint_dir,))
         processes.append(p)
         p.start()
+        time.sleep(2)
 
     for task_idx, tester_host in enumerate(tester_hosts):
         p = Process(target=work, args=('tester', task_idx, ps_hosts, tester_hosts, worker_hosts, checkpoint_dir,))
@@ -81,7 +84,6 @@ if __name__ == "__main__":
         p = Process(target=work, args=('worker', task_idx, ps_hosts, tester_hosts, worker_hosts, checkpoint_dir,))
         processes.append(p)
         p.start()
-        time.sleep(2)
 
     for process in processes:
         process.join()

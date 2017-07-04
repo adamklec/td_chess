@@ -2,7 +2,7 @@ import numpy as np
 from copy import deepcopy
 import chess
 from chess.pgn import read_game
-from random import choice
+from random import choice, randint
 
 
 class Chess(object):
@@ -17,10 +17,10 @@ class Chess(object):
             self.board_generator = None
 
         if board is None:
-            if not random_position:
-                self.board = chess.Board()
+            if random_position:
+                for _ in range(randint(1, 100)):  # non-optimal pseudo-random generator.
+                    self.board = self.board_generator.__next__()
             else:
-
                 self.board = chess.Board()
         else:
             self.board = board
@@ -28,7 +28,9 @@ class Chess(object):
     def reset(self, board=None):
         if board is None:
             if self.random_position:
-                self.board = self.board_generator.__next__()
+                for _ in range(randint(1, 100)):  # non-optimal pseudo-random generator.
+                    self.board = self.board_generator.__next__()
+
             else:
                 self.board = chess.Board()
         else:
@@ -116,10 +118,11 @@ class Chess(object):
         pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
         values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
         for piece, value in zip(pieces, values):
-            fen = '/'.join([8 * piece for _ in range(8)]) + ' b -- - 0 1'
+            fen = '/'.join([8 * piece for _ in range(8)]) + ' b - - 0 1'
             board = chess.Board(fen)
             W_1[Chess.make_feature_vector(board)[0] == 1, 0] = value
         return W_1
+
 
 def board_generator(pgn):
     while True:

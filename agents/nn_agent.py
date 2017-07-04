@@ -9,8 +9,15 @@ from game import Chess
 
 
 class NeuralNetworkAgent(object):
-    def __init__(self, name, network, global_episode_count=None, checkpoint=None, verbose=False,
-                 model_path="/Users/adam/Documents/projects/td_chess/model", load_tests=False, create_trainer=True):
+    def __init__(self,
+                 name,
+                 network,
+                 global_episode_count=None,
+                 checkpoint=None, verbose=False,
+                 model_path="/Users/adam/Documents/projects/td_chess/model",
+                 load_tests=False,
+                 create_trainer=True,
+                 load_pgn=True):
         self.verbose = verbose
 
         self.name = name
@@ -18,12 +25,18 @@ class NeuralNetworkAgent(object):
         self.model_path = model_path
 
         self.load_tests = load_tests
+        self.load_pgn = load_pgn
 
         if self.load_tests:
             self.tests = []
             path = "/Users/adam/Documents/projects/td_chess/STS[1-13]/"
             for filename in listdir(path):
                 self.tests.append((NeuralNetworkAgent.parse_tests(path + filename), filename))
+
+        if self.load_pgn:
+            self.env = Chess(load_pgn=True, random_position=True)
+        else:
+            self.env = Chess()
 
         self.game_turn_count = tf.Variable(0, name='game_turn_count')
         self.game_turn_count_ = tf.placeholder(tf.int32, name='game_turn_count_')
@@ -36,6 +49,7 @@ class NeuralNetworkAgent(object):
         tf.summary.scalar("test_score", self.test_score)
 
         self.neural_network = network
+        self.global_episode_count = global_episode_count
 
         if create_trainer:
             self.traces = []
@@ -43,7 +57,6 @@ class NeuralNetworkAgent(object):
             self.trace_tensor_placeholders = []
 
             self.trainer = tf.train.AdamOptimizer()
-            self.global_episode_count = global_episode_count
             with tf.variable_scope('turn_count'):
                 self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
             with tf.variable_scope('traces'):
@@ -78,14 +91,14 @@ class NeuralNetworkAgent(object):
         for idx in range(len(self.traces)):
             self.traces[idx][:] = 0
 
-    def train(self, sess, env, depth=1):
-
+    def train(self, sess, depth=1):
         turn_count = 0
         self.reset_traces()
+        self.env.reset()
 
-        while env.get_reward() is None:
-            move, next_value = self.get_move(sess, env, depth)
-            feature_vector = Chess.make_feature_vector(env.board)
+        while self.env.get_reward() is None:
+            move, next_value = self.get_move(sess, self.env, depth)
+            feature_vector = Chess.make_feature_vector(self.env.board)
             value, grad_vars = sess.run([self.neural_network.value,
                                          self.grad_vars],
                                         feed_dict={
@@ -94,6 +107,9 @@ class NeuralNetworkAgent(object):
                                         )
             grads, _ = zip(*grad_vars)
             self.update_traces(grads)
+            sess.run(self.set_trace_tensors_op,
+                     feed_dict={trace_tensor_: trace
+                                for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
             delta = (next_value - value)[0][0]
             sess.run(self.apply_grads,
                      feed_dict={delta_trace_: -delta * trace
@@ -102,12 +118,12 @@ class NeuralNetworkAgent(object):
                      )
 
             # push the move onto the environment
-            env.make_move(move)
+            self.env.make_move(move)
             turn_count += 1
 
         # update traces with final state and reward
-        reward = env.get_reward()
-        feature_vector = Chess.make_feature_vector(env.board)
+        reward = self.env.get_reward()
+        feature_vector = Chess.make_feature_vector(self.env.board)
         value, grad_vars = sess.run([self.neural_network.value,
                                      self.grad_vars],
                                     feed_dict={
@@ -116,6 +132,10 @@ class NeuralNetworkAgent(object):
                                     )
         grads, _ = zip(*grad_vars)
         self.update_traces(grads)
+        sess.run(self.set_trace_tensors_op,
+                 feed_dict={trace_tensor_: trace
+                            for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
+
         delta = (reward - value)[0][0]
         sess.run(self.apply_grads,
                  feed_dict={delta_trace_: -delta * trace
@@ -128,12 +148,11 @@ class NeuralNetworkAgent(object):
                   "turn count:", turn_count,
                   'reward:', reward)
 
-        sess.run([self.set_game_turn_count_op,
-                  self.increment_global_episode_count_op],
+        sess.run([self.set_game_turn_count_op, self.increment_global_episode_count_op],
                  feed_dict={self.game_turn_count_: turn_count})
 
-        sess.run(self.set_trace_tensors_op, feed_dict={trace_tensor_: trace
-                                                       for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
+        with open("move_log.txt", "a") as move_log:
+            move_log.write(','.join([str(m) for m in self.env.board.move_stack]) + '\n')
 
     @staticmethod
     def parse_tests(fn):
@@ -165,7 +184,7 @@ class NeuralNetworkAgent(object):
         df = df.set_index('id')
         return df
 
-    def test(self, sess, env, depth=1):
+    def test(self, sess, depth=1):
         tot = 0
         test_count = 0
         correct_count = 0
@@ -173,8 +192,9 @@ class NeuralNetworkAgent(object):
             print('running test suite:', name)
             for idx, (fen, c0) in enumerate(zip(df.fen, df.c0)):
                 board = Board(fen=fen)
-                env.reset(board=board)
-                move, _ = self.get_move(sess, env, depth)
+                self.env.reset(board=board)
+                move, _ = self.get_move(sess, self.env, depth)
+                # move = choice(list(board.legal_moves))
                 reward = c0.get(board.san(move), 0)
                 test_count += 1
                 if reward > 0:
