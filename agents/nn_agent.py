@@ -13,17 +13,18 @@ class NeuralNetworkAgent(object):
                  name,
                  network,
                  global_episode_count=None,
-                 checkpoint=None, verbose=False,
+                 checkpoint=None,
+                 verbose=False,
                  model_path="/Users/adam/Documents/projects/td_chess/model",
                  load_tests=False,
                  create_trainer=True,
                  load_pgn=True):
-        self.verbose = verbose
 
         self.name = name
-        self.checkpoint = checkpoint
-        self.model_path = model_path
 
+        self.checkpoint = checkpoint
+        self.verbose = verbose
+        self.model_path = model_path
         self.load_tests = load_tests
         self.load_pgn = load_pgn
 
@@ -34,7 +35,9 @@ class NeuralNetworkAgent(object):
                 self.tests.append((NeuralNetworkAgent.parse_tests(path + filename), filename))
 
         if self.load_pgn:
-            self.env = Chess(load_pgn=True, random_position=True)
+            # self.env = Chess(load_pgn=True, random_position=True)
+            self.env = Chess()
+
         else:
             self.env = Chess()
 
@@ -43,45 +46,50 @@ class NeuralNetworkAgent(object):
         self.set_game_turn_count_op = tf.assign(self.game_turn_count, self.game_turn_count_, name='set_game_turn_count')
         tf.summary.scalar("game_turn_count", self.game_turn_count)
 
-        self.test_score_ = tf.placeholder(tf.int32, name='test_score_')
-        self.test_score = tf.Variable(0, name='test_total')
-        self.set_test_score_op = self.test_score.assign(self.test_score_)
-        tf.summary.scalar("test_score", self.test_score)
+        self.test_score_ = tf.placeholder(tf.float32, name='test_score_')
+        self.test_results = tf.Variable(tf.zeros([13]), name="test_results")
+        self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
+        self.test_result_ = tf.placeholder(tf.float32, name='test_result_')
+
+        self.update_test_results = tf.scatter_update(self.test_results, self.test_idx_, self.test_result_)
+        test_total = tf.reduce_sum(self.test_results)
+        tf.summary.scalar("test_total", test_total)
 
         self.neural_network = network
         self.global_episode_count = global_episode_count
+        for tvar in self.neural_network.trainable_variables:
+            tf.summary.histogram(tvar.op.name, tvar)
 
-        if create_trainer:
-            self.traces = []
-            set_trace_tensor_ops = []
-            self.trace_tensor_placeholders = []
+        self.traces = []
+        set_trace_tensor_ops = []
+        self.trace_tensor_placeholders = []
 
-            self.trainer = tf.train.AdamOptimizer()
-            with tf.variable_scope('turn_count'):
-                self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
-            with tf.variable_scope('traces'):
-                for var in self.neural_network.trainable_variables:
-                    trace = np.zeros(var.get_shape())
-                    self.traces.append(trace)
+        self.trainer = tf.train.AdamOptimizer()
+        with tf.variable_scope('turn_count'):
+            self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
+        with tf.variable_scope('traces'):
+            for var in self.neural_network.trainable_variables:
+                trace = np.zeros(var.get_shape())
+                self.traces.append(trace)
 
-                    trace_tensor = tf.Variable(initial_value=trace, dtype=tf.float32, trainable=False, name=var.op.name+'_trace')
+                trace_tensor = tf.Variable(initial_value=trace, dtype=tf.float32, trainable=False, name=var.op.name+'_trace')
 
-                    trace_tensor_ = tf.placeholder(tf.float32, shape=var.get_shape(),  name=var.op.name+'_trace_')
-                    self.trace_tensor_placeholders.append(trace_tensor_)
+                trace_tensor_ = tf.placeholder(tf.float32, shape=var.get_shape(),  name=var.op.name+'_trace_')
+                self.trace_tensor_placeholders.append(trace_tensor_)
 
-                    set_trace_tensor_op = trace_tensor.assign(trace_tensor_)
-                    set_trace_tensor_ops.append(set_trace_tensor_op)
+                set_trace_tensor_op = trace_tensor.assign(trace_tensor_)
+                set_trace_tensor_ops.append(set_trace_tensor_op)
 
-                    tf.summary.histogram(var.op.name+'_trace', trace_tensor)
+                tf.summary.histogram(var.op.name+'_trace', trace_tensor)
 
-            self.set_trace_tensors_op = tf.group(*set_trace_tensor_ops, name='set_trace_tensors_op')
+        self.set_trace_tensors_op = tf.group(*set_trace_tensor_ops, name='set_trace_tensors_op')
 
-            self.lamda = .7
+        self.lamda = .7
 
-            self.grad_vars = self.trainer.compute_gradients(self.neural_network.value, self.neural_network.trainable_variables)
+        self.grad_vars = self.trainer.compute_gradients(self.neural_network.value, self.neural_network.trainable_variables)
 
-            self.delta_trace_placeholders = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.neural_network.trainable_variables]
-            self.apply_grads = self.trainer.apply_gradients(zip(self.delta_trace_placeholders, self.neural_network.trainable_variables), name='apply_grads')
+        self.delta_trace_placeholders = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.neural_network.trainable_variables]
+        self.apply_grads = self.trainer.apply_gradients(zip(self.delta_trace_placeholders, self.neural_network.trainable_variables), name='apply_grads')
 
     def update_traces(self, grads):
         for idx in range(len(grads)):
@@ -189,27 +197,30 @@ class NeuralNetworkAgent(object):
         df = df.set_index('id')
         return df
 
-    def test(self, sess, depth=1):
-        tot = 0
-        test_count = 0
-        correct_count = 0
-        for (df, name) in self.tests:
+    def test(self, sess, test_idxs=None, depth=1):
+        if test_idxs is None:
+            test_idxs = range(13)
+
+        for test_idx in test_idxs:
+            df, name = self.tests[test_idx]
+            tot = 0
             print('running test suite:', name)
             for idx, (fen, c0) in enumerate(zip(df.fen, df.c0)):
                 board = Board(fen=fen)
                 self.env.reset(board=board)
                 move, _ = self.get_move(sess, self.env, depth)
                 # move = choice(list(board.legal_moves))
+                print(move, c0)
                 reward = c0.get(board.san(move), 0)
-                test_count += 1
-                if reward > 0:
-                    correct_count += 1
                 tot += reward
 
-        sess.run(self.set_test_score_op, feed_dict={self.test_score_: tot})
-        global_episode_count = sess.run(self.global_episode_count)
-        print("EPISODE", global_episode_count, "TEST TOTAL:", tot)
-        return tot
+            sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
+                                                          self.test_result_: tot})
+            global_episode_count = sess.run(self.global_episode_count)
+            print("EPISODE", global_episode_count,
+                  "TEST_IDX", test_idx,
+                  "TEST TOTAL:", tot)
+            print(sess.run(self.test_results))
 
     def get_move(self, sess, env, depth):
         node = Node('root', board=env.board)
@@ -219,7 +230,7 @@ class NeuralNetworkAgent(object):
 
     @staticmethod
     def alpha_beta(node, depth, alpha, beta, value_function):
-        if depth == 0 or node.board.is_game_over():
+        if (depth <= 0 and NeuralNetworkAgent.is_quiet(node)) or node.board.is_game_over():
             return value_function(node.board), node
 
         legal_moves = list(node.board.legal_moves)
@@ -252,3 +263,18 @@ class NeuralNetworkAgent(object):
                 if beta <= alpha:
                     break  # (* α cut-off *)
             return v, n
+
+    @staticmethod
+    def is_quiet(node):
+        is_check = node.board.is_check()
+
+        capturing_piece_type = node.board.piece_type_at(node.move.to_square)
+        captured_piece_type = node.parent.board.piece_type_at(node.move.to_square)
+        if captured_piece_type is None:
+            is_winning_capture = False
+        else:
+            is_winning_capture = capturing_piece_type < captured_piece_type
+
+        is_promotion = node.move.promotion is not None
+
+        return not (is_check or is_winning_capture or is_promotion)

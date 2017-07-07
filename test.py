@@ -15,7 +15,7 @@ def main():
         network = ChessNeuralNetwork()
         global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
-        agent = NeuralNetworkAgent('agent_0', network, global_episode_count=global_episode_count, load_tests=True)
+        agent = NeuralNetworkAgent('tester_0', network, global_episode_count=global_episode_count, load_tests=True)
         # saver = tf.train.Saver(max_to_keep=5)
         #
         # if load_model == True:
@@ -26,10 +26,7 @@ def main():
 
         sess.run(tf.global_variables_initializer())
 
-        env = Chess()
-        tot = agent.test(sess, env, depth=1)
-    print(tot)
-
+        agent.test(sess, depth=1)
 
 if __name__ == "__main__":
     t0 = time.time()

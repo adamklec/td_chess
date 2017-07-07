@@ -27,9 +27,6 @@ class ChessNeuralNetwork(object):
             self.target_value_ = tf.placeholder(tf.float32, shape=[], name='target_value_placeholder')
             self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=tf.get_variable_scope().name)
 
-        for tvar in self.trainable_variables:
-            tf.summary.histogram(tvar.op.name, tvar)
-
     def get_value(self, board, sess):
         value = sess.run(self.value,
                          feed_dict={self.feature_vector_: Chess.make_feature_vector(board)})

@@ -18,14 +18,16 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
         server.join()
 
     else:
+
         with tf.device(tf.train.replica_device_setter(
-                worker_device="/job:trainer/task:%d" % task_index,
+                worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
             network = ChessNeuralNetwork()
             global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
-        agent_name = 'agent_' + str(task_index)
         if job_name == "tester":
+
+            agent_name = 'tester_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
                                        network,
                                        global_episode_count=global_episode_count,
@@ -33,7 +35,10 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
                                        load_tests=True,
                                        create_trainer=False,
                                        load_pgn=False)
+            print('tester', task_idx, 'initialized')
+
         else:
+            agent_name = 'trainer_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
                                        network,
                                        global_episode_count=global_episode_count,
@@ -41,8 +46,12 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
                                        load_tests=False,
                                        create_trainer=True,
                                        load_pgn=True)
+            print('trainer', task_idx, 'initialized')
+
 
         summary_op = tf.summary.merge_all()
+
+        print('summaries!')
 
         hooks = [tf.train.StopAtStepHook(last_step=10000)]
 
@@ -58,30 +67,30 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    agent.test(mon_sess, depth=1)
-
+                    print('here')
+                    agent.test(task_idx, mon_sess, depth=1)
 
 if __name__ == "__main__":
-    ps_hosts = ['localhost:2222']
-    tester_hosts = ['localhost:2223']
-    trainer_hosts = ['localhost:2224', 'localhost:2225', 'localhost:2226', 'localhost:2227']
-    checkpoint_dir = "log/" + str(int(time.time()))
+    ps_host_list = ['localhost:2222']
+    tester_host_list = ['localhost:2223', 'localhost:2224', 'localhost:2225', 'localhost:2226']
+    trainer_host_list = ['localhost:2236']
+    ckpt_dir = "log/" + str(int(time.time()))
 
     processes = []
 
-    for task_idx, _ in enumerate(ps_hosts):
-        p = Process(target=work, args=('ps', task_idx, ps_hosts, tester_hosts, trainer_hosts, checkpoint_dir,))
+    for task_idx, _ in enumerate(ps_host_list):
+        p = Process(target=work, args=('ps', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
         processes.append(p)
         p.start()
         time.sleep(2)
 
-    for task_idx, _ in enumerate(tester_hosts):
-        p = Process(target=work, args=('tester', task_idx, ps_hosts, tester_hosts, trainer_hosts, checkpoint_dir,))
+    for task_idx, _ in enumerate(tester_host_list):
+        p = Process(target=work, args=('tester', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
         processes.append(p)
         p.start()
 
-    for task_idx, _ in enumerate(trainer_hosts):
-        p = Process(target=work, args=('trainer', task_idx, ps_hosts, tester_hosts, trainer_hosts, checkpoint_dir,))
+    for task_idx, _ in enumerate(trainer_host_list):
+        p = Process(target=work, args=('trainer', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
         processes.append(p)
         p.start()
 
