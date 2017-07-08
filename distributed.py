@@ -33,10 +33,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
                                        global_episode_count=global_episode_count,
                                        verbose=True,
                                        load_tests=True,
-                                       create_trainer=False,
                                        load_pgn=False)
-            print('tester', task_idx, 'initialized')
-
         else:
             agent_name = 'trainer_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
@@ -44,14 +41,9 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
                                        global_episode_count=global_episode_count,
                                        verbose=True,
                                        load_tests=False,
-                                       create_trainer=True,
                                        load_pgn=True)
-            print('trainer', task_idx, 'initialized')
-
 
         summary_op = tf.summary.merge_all()
-
-        print('summaries!')
 
         hooks = [tf.train.StopAtStepHook(last_step=10000)]
 
@@ -67,13 +59,12 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    print('here')
-                    agent.test(task_idx, mon_sess, depth=1)
+                    agent.test(mon_sess, test_idxs=range(13)[task_idx::2], depth=1)
 
 if __name__ == "__main__":
     ps_host_list = ['localhost:2222']
-    tester_host_list = ['localhost:2223', 'localhost:2224', 'localhost:2225', 'localhost:2226']
-    trainer_host_list = ['localhost:2236']
+    tester_host_list = ['localhost:2223', 'localhost:2224']
+    trainer_host_list = ['localhost:2225', 'localhost:2226']
     ckpt_dir = "log/" + str(int(time.time()))
 
     processes = []

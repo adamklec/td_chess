@@ -17,7 +17,6 @@ class NeuralNetworkAgent(object):
                  verbose=False,
                  model_path="/Users/adam/Documents/projects/td_chess/model",
                  load_tests=False,
-                 create_trainer=True,
                  load_pgn=True):
 
         self.name = name
@@ -35,8 +34,7 @@ class NeuralNetworkAgent(object):
                 self.tests.append((NeuralNetworkAgent.parse_tests(path + filename), filename))
 
         if self.load_pgn:
-            # self.env = Chess(load_pgn=True, random_position=True)
-            self.env = Chess()
+            self.env = Chess(load_pgn=True, random_position=True)
 
         else:
             self.env = Chess()
@@ -86,6 +84,8 @@ class NeuralNetworkAgent(object):
 
         self.lamda = .7
 
+        # l1_loss = .001 * sum([tf.reduce_sum(tf.abs(var)) for var in self.neural_network.trainable_variables])
+
         self.grad_vars = self.trainer.compute_gradients(self.neural_network.value, self.neural_network.trainable_variables)
 
         self.delta_trace_placeholders = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.neural_network.trainable_variables]
@@ -96,32 +96,45 @@ class NeuralNetworkAgent(object):
             self.traces[idx] = self.lamda * self.traces[idx] + grads[idx]
 
     def reset_traces(self):
-        for idx in range(len(self.traces)):
-            self.traces[idx][:] = 0
+        traces = []
+        for trace in self.traces:
+            traces.append(np.zeros_like(trace))
+        self.traces = traces
 
     def train(self, sess, depth=1):
         turn_count = 0
         self.reset_traces()
         self.env.reset()  # creates random board if env.random_position
+        print(self.env.board)
         starting_position_move_str = ','.join([str(m) for m in self.env.board.move_stack])
         selected_moves = []
-        while self.env.get_reward() is None:
-            move, next_value = self.get_move(sess, self.env, depth)
+        while self.env.get_reward() is None and turn_count < 10:
+            move, leaf_value = self.get_move(sess, self.env, depth)
             selected_moves.append(move)
 
             feature_vector = Chess.make_feature_vector(self.env.board)
-            value, grad_vars = sess.run([self.neural_network.value,
+            value, learned_value, simple_value, grad_vars = sess.run([self.neural_network.value,
+                                         self.neural_network.learned_value,
+                                         self.neural_network.simple_value,
                                          self.grad_vars],
-                                        feed_dict={
-                                            self.neural_network.feature_vector_: feature_vector,
-                                            self.neural_network.target_value_: next_value}
-                                        )
+                                        feed_dict={self.neural_network.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
+            print('value:', value, 'leaf value:', leaf_value, 'learned_value:', learned_value, 'simple_value:', simple_value)
+
+            for grad, var in grad_vars:
+                print('var mean:', np.mean(var), 'var std:', np.std(var))
+                print('grad mean:', np.mean(grad), 'grad std:', np.std(grad))
+                print('non zero grad elements:', (grad != 0).sum())
+                # print(var)
+
             self.update_traces(grads)
             sess.run(self.set_trace_tensors_op,
                      feed_dict={trace_tensor_: trace
                                 for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
-            delta = (next_value - value)[0][0]
+            delta = (leaf_value - value)[0][0]
+            print('delta', delta)
+            for trace in self.traces:
+                print('trace mean:', np.mean(trace), 'trace std:', np.std(trace))
             sess.run(self.apply_grads,
                      feed_dict={delta_trace_: -delta * trace
                                 for delta_trace_, trace in
@@ -132,32 +145,34 @@ class NeuralNetworkAgent(object):
             self.env.make_move(move)
             turn_count += 1
 
-        # update traces with final state and reward
-        reward = self.env.get_reward()
-        feature_vector = Chess.make_feature_vector(self.env.board)
-        value, grad_vars = sess.run([self.neural_network.value,
-                                     self.grad_vars],
-                                    feed_dict={
-                                        self.neural_network.feature_vector_: feature_vector,
-                                        self.neural_network.target_value_: reward}
-                                    )
-        grads, _ = zip(*grad_vars)
-        self.update_traces(grads)
-        sess.run(self.set_trace_tensors_op,
-                 feed_dict={trace_tensor_: trace
-                            for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
+        if self.env.board.is_game_over():
+            # update traces with final state and reward
+            reward = self.env.get_reward()
+            feature_vector = Chess.make_feature_vector(self.env.board)
+            value, grad_vars = sess.run([self.neural_network.value,
+                                         self.grad_vars],
+                                        feed_dict={
+                                            self.neural_network.feature_vector_: feature_vector}
+                                        )
+            grads, _ = zip(*grad_vars)
+            self.update_traces(grads)
+            sess.run(self.set_trace_tensors_op,
+                     feed_dict={trace_tensor_: trace
+                                for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
 
-        delta = (reward - value)[0][0]
-        sess.run(self.apply_grads,
-                 feed_dict={delta_trace_: -delta * trace
-                            for delta_trace_, trace in
-                            zip(self.delta_trace_placeholders, self.traces)}
-                 )
+            delta = (reward - value)[0][0]
+            print('final delta', delta)
+            sess.run(self.apply_grads,
+                     feed_dict={delta_trace_: -delta * trace
+                                for delta_trace_, trace in
+                                zip(self.delta_trace_placeholders, self.traces)
+                                }
+                     )
         if self.verbose:
             print("global episode:", sess.run(self.global_episode_count),
                   self.name,
                   "turn count:", turn_count,
-                  'reward:', reward)
+                  'reward:', self.env.get_reward())
 
         sess.run([self.set_game_turn_count_op, self.increment_global_episode_count_op],
                  feed_dict={self.game_turn_count_: turn_count})
@@ -210,7 +225,6 @@ class NeuralNetworkAgent(object):
                 self.env.reset(board=board)
                 move, _ = self.get_move(sess, self.env, depth)
                 # move = choice(list(board.legal_moves))
-                print(move, c0)
                 reward = c0.get(board.san(move), 0)
                 tot += reward
 
