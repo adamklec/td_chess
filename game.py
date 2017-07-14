@@ -67,17 +67,8 @@ class Chess(object):
         return Chess(board=deepcopy(self.board))
 
     @staticmethod
-    def simple_value_function(board):
-        values = [1, 3, 3, 5, 9]
-        s = 0
-        for i, v in enumerate(values):
-            s += Chess.pad_bitmask(board.pieces_mask(i + 1, 1)).sum() * v
-            s -= Chess.pad_bitmask(board.pieces_mask(i + 1, 0)).sum() * v
-        return np.tanh(s / 5)
-
-    @staticmethod
     def make_feature_vector(board):
-        piece_matrix = np.zeros((64, len(chess.PIECE_TYPES) + 1, len(chess.COLORS)))
+        piece_matrix = np.zeros((64, len(chess.PIECE_TYPES) + 1, len(chess.COLORS)), dtype='float32')
 
         # piece positions
         for piece in chess.PIECE_TYPES:
@@ -89,7 +80,7 @@ class Chess(object):
             piece_matrix[board.ep_square, -1, int(board.turn)] = 1
 
         reshaped_piece_matrix = piece_matrix.reshape((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)))
-        feature_array = np.zeros((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 2))
+        feature_array = np.zeros((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 2), dtype='float32')
         feature_array[:, :-2] = reshaped_piece_matrix
 
         # empty squares
@@ -99,7 +90,7 @@ class Chess(object):
         # castling rights
         feature_array[:, -1] = Chess.pad_bitmask(board.castling_rights)
 
-        feature_vector = np.zeros((1, 1025))
+        feature_vector = np.zeros((1, 1025), dtype='float32')
         feature_vector[0, :-1] = np.reshape(feature_array, (1024,))
         feature_vector[0, -1] = board.turn
 
@@ -107,10 +98,10 @@ class Chess(object):
 
     @staticmethod
     def pad_bitmask(mask):
-        mask = [int(s) for s in list(bin(mask)[2:])]
-        while len(mask) < 64:
-            mask.insert(0, 0)
-        return np.array(mask)
+        mask = [int(s) for s in bin(mask)[2:]]
+        padded_mask = np.zeros((64,))
+        padded_mask[-len(mask):] = mask
+        return padded_mask
 
     @staticmethod
     def get_simple_value_weights():
@@ -139,11 +130,8 @@ def board_generator(pgn):
         else:
             pgn.seek(0)
 
+
 def make_random_move(board):
     random_move = choice(list(board.legal_moves))
     board.push(random_move)
     return board
-
-def make_tree(board, depth):
-    legal_moves = board.legal_moves
-
