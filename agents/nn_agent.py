@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 from random import choice
-from chess import Board
+from chess import Board, Move
 from os import listdir
 from anytree import Node
 from game import Chess
@@ -84,8 +84,6 @@ class NeuralNetworkAgent(object):
 
         self.lamda = .7
 
-        # l1_loss = .001 * sum([tf.reduce_sum(tf.abs(var)) for var in self.neural_network.trainable_variables])
-
         self.grad_vars = self.trainer.compute_gradients(self.neural_network.value, self.neural_network.trainable_variables)
 
         self.delta_trace_placeholders = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.neural_network.trainable_variables]
@@ -105,7 +103,6 @@ class NeuralNetworkAgent(object):
         turn_count = 0
         self.reset_traces()
         self.env.reset()  # creates random board if env.random_position
-        print(self.env.board)
         starting_position_move_str = ','.join([str(m) for m in self.env.board.move_stack])
         selected_moves = []
         while self.env.get_reward() is None and turn_count < 10:
@@ -119,22 +116,13 @@ class NeuralNetworkAgent(object):
                                          self.grad_vars],
                                         feed_dict={self.neural_network.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
-            print('value:', value, 'leaf value:', leaf_value, 'learned_value:', learned_value, 'simple_value:', simple_value)
-
-            for grad, var in grad_vars:
-                print('var mean:', np.mean(var), 'var std:', np.std(var))
-                print('grad mean:', np.mean(grad), 'grad std:', np.std(grad))
-                print('non zero grad elements:', (grad != 0).sum())
-                # print(var)
 
             self.update_traces(grads)
             sess.run(self.set_trace_tensors_op,
                      feed_dict={trace_tensor_: trace
                                 for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
             delta = (leaf_value - value)[0][0]
-            print('delta', delta)
-            for trace in self.traces:
-                print('trace mean:', np.mean(trace), 'trace std:', np.std(trace))
+
             sess.run(self.apply_grads,
                      feed_dict={delta_trace_: -delta * trace
                                 for delta_trace_, trace in
@@ -161,7 +149,6 @@ class NeuralNetworkAgent(object):
                                 for trace_tensor_, trace in zip(self.trace_tensor_placeholders, self.traces)})
 
             delta = (reward - value)[0][0]
-            print('final delta', delta)
             sess.run(self.apply_grads,
                      feed_dict={delta_trace_: -delta * trace
                                 for delta_trace_, trace in
@@ -220,7 +207,7 @@ class NeuralNetworkAgent(object):
             df, name = self.tests[test_idx]
             tot = 0
             print('running test suite:', name)
-            for idx, (fen, c0) in enumerate(zip(df.fen, df.c0)):
+            for idx, (fen, c0) in enumerate(zip(df.fen[:1], df.c0[:1])):
                 board = Board(fen=fen)
                 self.env.reset(board=board)
                 move, _ = self.get_move(sess, self.env, depth)
@@ -237,14 +224,14 @@ class NeuralNetworkAgent(object):
             print(sess.run(self.test_results))
 
     def get_move(self, sess, env, depth):
-        node = Node('root', board=env.board)
+        node = Node('root', board=env.board, move=Move.null())
         leaf_value, leaf_node = self.alpha_beta(node, depth, -1, 1, self.neural_network.value_function(sess))
         move = leaf_node.path[1].move
         return move, leaf_value[0, 0]
 
     @staticmethod
     def alpha_beta(node, depth, alpha, beta, value_function):
-        if (depth <= 0 and NeuralNetworkAgent.is_quiet(node)) or node.board.is_game_over():
+        if (depth <= 0 and NeuralNetworkAgent.is_quiet(node)) or node.board.is_game_over() or depth < -4:
             return value_function(node.board), node
 
         legal_moves = list(node.board.legal_moves)
@@ -291,4 +278,8 @@ class NeuralNetworkAgent(object):
 
         is_promotion = node.move.promotion is not None
 
-        return not (is_check or is_winning_capture or is_promotion)
+        if is_winning_capture:
+            "is_winning_capture!"
+
+        is_capture = node.parent.board.is_capture(node.move)
+        return not (is_check or is_capture or is_promotion)
