@@ -1,5 +1,4 @@
 import numpy as np
-from copy import deepcopy
 import chess
 from chess.pgn import read_game
 from random import choice, randint
@@ -63,49 +62,41 @@ class Chess(object):
         legal_moves = list(board.legal_moves)
         return legal_moves
 
-    def clone(self):
-        return Chess(board=deepcopy(self.board))
 
     @staticmethod
     def make_feature_vector(board):
-        piece_matrix = np.zeros((64, len(chess.PIECE_TYPES) + 1, len(chess.COLORS)), dtype='float32')
+        # feature_vector = np.zeros(((len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 3, 64), dtype='float32')
 
-        # piece positions
-        for piece in chess.PIECE_TYPES:
-            for color in chess.COLORS:
-                piece_matrix[:, piece, int(color)] = Chess.pad_bitmask(board.pieces_mask(piece, color))
+        # 6 piece type maps + en passant square map for each color + 4 castling rights bit + 1 turn bit
 
-        # en passant target squares
-        if board.ep_square:
-            piece_matrix[board.ep_square, -1, int(board.turn)] = 1
+        feature_vector = np.zeros((1, ((len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)) * 64 + 5), dtype='float32')
 
-        reshaped_piece_matrix = piece_matrix.reshape((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)))
-        feature_array = np.zeros((64, (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 2), dtype='float32')
-        feature_array[:, :-2] = reshaped_piece_matrix
+        masks = [board.pieces_mask(piece, color) for color in chess.COLORS for piece in chess.PIECE_TYPES]
+        padded_masks = Chess.pad_bitmasks(masks)
+        feature_vector[0, :-(128 + 5)] = np.hstack(padded_masks)
+        ep_square = board.ep_square
+        if ep_square:
+            feature_vector[0, -64 * (board.turn + 1) - 5 + board.ep_square] = 1
 
-        # empty squares
-        empty_squares = (reshaped_piece_matrix.sum(axis=1) == 0)
-        feature_array[empty_squares, :-2] = 1
-
-        # castling rights
-        feature_array[:, -1] = Chess.pad_bitmask(board.castling_rights)
-
-        feature_vector = np.zeros((1, 1025), dtype='float32')
-        feature_vector[0, :-1] = np.reshape(feature_array, (1024,))
+        feature_vector[0, -5] = board.has_kingside_castling_rights(0)
+        feature_vector[0, -4] = board.has_queenside_castling_rights(0)
+        feature_vector[0, -3] = board.has_kingside_castling_rights(1)
+        feature_vector[0, -2] = board.has_queenside_castling_rights(1)
         feature_vector[0, -1] = board.turn
 
         return feature_vector
 
     @staticmethod
-    def pad_bitmask(mask):
-        mask = [int(s) for s in bin(mask)[2:]]
-        padded_mask = np.zeros((64,))
-        padded_mask[-len(mask):] = mask
-        return padded_mask
+    def pad_bitmasks(masks):
+        masks = [[int(s) for s in bin(mask)[2:]] for mask in masks]
+        padded_masks = np.zeros((len(masks), 64))
+        for i, mask in enumerate(masks):
+            padded_masks[i, -len(mask):] = mask
+        return padded_masks
 
     @staticmethod
     def get_simple_value_weights():
-        W_1 = np.zeros((1025, 1))
+        W_1 = np.zeros((901, 1))
         pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
         values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
         for piece, value in zip(pieces, values):
@@ -135,3 +126,43 @@ def make_random_move(board):
     random_move = choice(list(board.legal_moves))
     board.push(random_move)
     return board
+
+
+def simple_value_from_fen(fen):
+    fen = fen.split()[0]
+    value = 0
+
+    value += fen.count('P') * 1
+    value += fen.count('N') * 3
+    value += fen.count('B') * 3
+    value += fen.count('R') * 5
+    value += fen.count('Q') * 9
+
+    value -= fen.count('p') * 1
+    value -= fen.count('n') * 3
+    value -= fen.count('b') * 3
+    value -= fen.count('r') * 5
+    value -= fen.count('q') * 9
+
+    return value
+
+def simple_value_from_board(board):
+    value = simple_value_from_fen(board.fen())
+    return np.array([[value]])
+
+if __name__ == '__main__':
+    env = Chess(random_position=True, load_pgn=True)
+    import time
+
+    t0 = time.time()
+    fv1 = env.make_feature_vector(env.board)
+    print(time.time() - t0)
+    t0 = time.time()
+    fv2 = env.make_feature_vector2(env.board)
+    print(time.time() - t0)
+
+    W1 = env.get_simple_value_weights()
+    W2 = env.get_simple_value_weights2()
+
+    print((W1==1).sum())
+    print((W2==1).sum())

@@ -5,7 +5,7 @@ from random import choice
 from chess import Board, Move
 from os import listdir
 from anytree import Node
-from game import Chess
+from game import Chess, simple_value_from_board
 
 
 class NeuralNetworkAgent(object):
@@ -26,6 +26,7 @@ class NeuralNetworkAgent(object):
         self.model_path = model_path
         self.load_tests = load_tests
         self.load_pgn = load_pgn
+        self.ttable = dict()
 
         if self.load_tests:
             self.tests = []
@@ -207,7 +208,7 @@ class NeuralNetworkAgent(object):
             df, name = self.tests[test_idx]
             tot = 0
             print('running test suite:', name)
-            for idx, (fen, c0) in enumerate(zip(df.fen[:1], df.c0[:1])):
+            for fen, c0 in zip(df.fen, df.c0):
                 board = Board(fen=fen)
                 self.env.reset(board=board)
                 move, _ = self.get_move(sess, self.env, depth)
@@ -224,15 +225,26 @@ class NeuralNetworkAgent(object):
             print(sess.run(self.test_results))
 
     def get_move(self, sess, env, depth):
+        self.ttable = dict()
         node = Node('root', board=env.board, move=Move.null())
-        leaf_value, leaf_node = self.alpha_beta(node, depth, -1, 1, self.neural_network.value_function(sess))
+        leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.neural_network.value_function(sess))
+        # leaf_value, leaf_node = self.alpha_beta(node, depth, -1, 1, self.neural_network.value_function(sess))
+        # leaf_value, leaf_node = self.alpha_beta(node, depth, -1, 1, simple_value_from_board)
         move = leaf_node.path[1].move
         return move, leaf_value[0, 0]
 
-    @staticmethod
-    def alpha_beta(node, depth, alpha, beta, value_function):
-        if (depth <= 0 and NeuralNetworkAgent.is_quiet(node)) or node.board.is_game_over() or depth < -4:
-            return value_function(node.board), node
+    def alpha_beta(self, node, depth, alpha, beta, value_function):
+        if (depth <= 0 and NeuralNetworkAgent.is_quiet(node)) or node.board.is_game_over():
+
+            hash_key = node.board.zobrist_hash()
+            hash_value = self.ttable.get(hash_key)
+            if hash_value is None:
+                value = value_function(node.board)
+                self.ttable[hash_key] = value
+            else:
+                value = hash_value
+
+            return value, node
 
         legal_moves = list(node.board.legal_moves)
         child_boards = [node.board.copy() for _ in legal_moves]
@@ -245,7 +257,7 @@ class NeuralNetworkAgent(object):
         if node.board.turn:
             v = -100000
             for child in children:
-                vv, nn = NeuralNetworkAgent.alpha_beta(child, depth - 1, alpha, beta, value_function)
+                vv, nn = self.alpha_beta(child, depth - 1, alpha, beta, value_function)
                 if vv > v:
                     v = vv
                     n = nn
@@ -256,7 +268,7 @@ class NeuralNetworkAgent(object):
         else:
             v = 100000
             for child in children:
-                vv, nn = NeuralNetworkAgent.alpha_beta(child, depth - 1, alpha, beta, value_function)
+                vv, nn = self.alpha_beta(child, depth - 1, alpha, beta, value_function)
                 if vv < v:
                     v = vv
                     n = nn
@@ -265,12 +277,68 @@ class NeuralNetworkAgent(object):
                     break  # (* α cut-off *)
             return v, n
 
+    def negamax(self, node, depth, alpha, beta, value_function):
+        alpha_orig = alpha
+
+        hash_key = node.board.zobrist_hash()
+        tt_row = self.ttable.get(hash_key)
+        if tt_row is not None and tt_row['depth'] >= depth:
+            if tt_row['flag'] == 'EXACT':
+                return tt_row['value'], node
+            elif tt_row['flag'] == 'LOWERBOUND':
+                alpha = max(alpha, tt_row['value'])
+            elif tt_row['flag'] == 'UPPERBOUND':
+                beta = min(beta, tt_row['value'])
+            if alpha >= beta:
+                return tt_row['value'], node
+
+        if (depth <= 0 and NeuralNetworkAgent.is_quiet(node)) or node.board.is_game_over():
+            if node.board.turn:
+                return value_function(node.board), node
+            else:
+                return -value_function(node.board), node
+
+        legal_moves = list(node.board.legal_moves)
+        children = []
+        child_boards = [node.board.copy() for _ in legal_moves]
+        for idx in range(len(node.board.legal_moves)):
+            child_boards[idx].push(legal_moves[idx])
+            child = Node(str(legal_moves[idx]), parent=node, board=child_boards[idx], move=legal_moves[idx])
+            children.append(child)
+
+        v = -100000
+        n = node
+        for child in children:
+            vv, nn = self.negamax(child, depth - 1, -beta, -alpha, value_function)
+            vv = -vv
+            if vv > v:
+                v = vv
+                n = nn
+            alpha = max(alpha, vv)
+            if alpha >= beta:
+                break
+
+        if tt_row is None:
+            tt_row = dict()
+        tt_row['value'] = v
+        if v <= alpha_orig:
+            tt_row['flag'] = 'UPPERBOUND'
+        elif v >= beta:
+            tt_row['flag'] = 'LOWERBOUND'
+        else:
+            tt_row['flag'] = 'EXACT'
+
+        tt_row['depth'] = depth
+        self.ttable[hash_key] = tt_row
+        return v, n
+
     @staticmethod
     def is_quiet(node):
-        is_check = node.board.is_check()
 
-        capturing_piece_type = node.board.piece_type_at(node.move.to_square)
+        is_check = node.board.is_check()
+        capturing_piece_type = node.parent.board.piece_type_at(node.move.from_square)
         captured_piece_type = node.parent.board.piece_type_at(node.move.to_square)
+
         if captured_piece_type is None:
             is_winning_capture = False
         else:
@@ -278,8 +346,5 @@ class NeuralNetworkAgent(object):
 
         is_promotion = node.move.promotion is not None
 
-        if is_winning_capture:
-            "is_winning_capture!"
-
-        is_capture = node.parent.board.is_capture(node.move)
-        return not (is_check or is_capture or is_promotion)
+        # is_capture = node.parent.board.is_capture(node.move)
+        return not (is_check or is_winning_capture or is_promotion)

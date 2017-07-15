@@ -1,5 +1,5 @@
 from random import random, choice
-
+from game import simple_value_from_fen
 
 def generate_random_fen(density):
     pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
@@ -41,36 +41,17 @@ def generate_random_fen(density):
     fen += ' - 0 1'
     return fen
 
-def simple_value_from_fen(fen):
-    value = 0
-
-    value += fen.count('P') * 1
-    value += fen.count('N') * 3
-    value += fen.count('B') * 3
-    value += fen.count('R') * 5
-    value += fen.count('Q') * 9
-
-    value -= fen.count('p') * 1
-    value -= fen.count('n') * 3
-    value -= fen.count('b') * 3
-    value -= fen.count('r') * 5
-    value -= fen.count('q') * 9
-
-    return value
-
 
 def main():
     idx = 0
     while True:
+        print(idx)
         density = random()
         fen = generate_random_fen(density)
         value = simple_value_from_fen(fen)
         with open('simple_positions.fen', 'a') as f:
             f.write(fen + ',' + str(value) + '\n')
         idx += 1
-        # print(fen)
-        # print(value)
-        print(idx)
 
 if __name__ == "__main__":
     main()
