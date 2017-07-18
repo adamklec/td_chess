@@ -88,10 +88,10 @@ class Chess(object):
 
     @staticmethod
     def pad_bitmasks(masks):
-        masks = [[int(s) for s in bin(mask)[2:]] for mask in masks]
         padded_masks = np.zeros((len(masks), 64))
         for i, mask in enumerate(masks):
-            padded_masks[i, -len(mask):] = mask
+            for j, bit in enumerate(bin(mask)[2:]):
+                padded_masks[i, -int(j)] = bit
         return padded_masks
 
     @staticmethod

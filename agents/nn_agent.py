@@ -30,7 +30,7 @@ class NeuralNetworkAgent(object):
 
         if self.load_tests:
             self.tests = []
-            path = "/Users/adam/Documents/projects/td_chess/STS[1-13]/"
+            path = "/Users/adam/Documents/projects/td_chess/STS[1-14]/"
             for filename in listdir(path):
                 self.tests.append((NeuralNetworkAgent.parse_tests(path + filename), filename))
 
@@ -46,7 +46,7 @@ class NeuralNetworkAgent(object):
         tf.summary.scalar("game_turn_count", self.game_turn_count)
 
         self.test_score_ = tf.placeholder(tf.float32, name='test_score_')
-        self.test_results = tf.Variable(tf.zeros([13]), name="test_results")
+        self.test_results = tf.Variable(tf.zeros([14]), name="test_results")
         self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
         self.test_result_ = tf.placeholder(tf.float32, name='test_result_')
 
@@ -64,8 +64,9 @@ class NeuralNetworkAgent(object):
         self.trace_tensor_placeholders = []
 
         self.trainer = tf.train.AdamOptimizer()
-        with tf.variable_scope('turn_count'):
-            self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
+        if self.global_episode_count is not None:
+            with tf.variable_scope('turn_count'):
+                self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
         with tf.variable_scope('traces'):
             for var in self.neural_network.trainable_variables:
                 trace = np.zeros(var.get_shape())
@@ -202,13 +203,15 @@ class NeuralNetworkAgent(object):
 
     def test(self, sess, test_idxs=None, depth=1):
         if test_idxs is None:
-            test_idxs = range(13)
+            test_idxs = range(14)
 
         for test_idx in test_idxs:
             df, name = self.tests[test_idx]
             tot = 0
             print('running test suite:', name)
+            # for fen, c0 in zip(df.fen[:1], df.c0[:1]):
             for fen, c0 in zip(df.fen, df.c0):
+
                 board = Board(fen=fen)
                 self.env.reset(board=board)
                 move, _ = self.get_move(sess, self.env, depth)
@@ -227,7 +230,8 @@ class NeuralNetworkAgent(object):
     def get_move(self, sess, env, depth):
         self.ttable = dict()
         node = Node('root', board=env.board, move=Move.null())
-        leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.neural_network.value_function(sess))
+        leaf_value, leaf_node = self.negascout(node, depth, -1, 1, self.neural_network.value_function(sess))
+        # leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.neural_network.value_function(sess))
         # leaf_value, leaf_node = self.alpha_beta(node, depth, -1, 1, self.neural_network.value_function(sess))
         # leaf_value, leaf_node = self.alpha_beta(node, depth, -1, 1, simple_value_from_board)
         move = leaf_node.path[1].move
@@ -282,7 +286,7 @@ class NeuralNetworkAgent(object):
 
         hash_key = node.board.zobrist_hash()
         tt_row = self.ttable.get(hash_key)
-        if tt_row is not None and tt_row['depth'] >= depth:
+        if tt_row is not None:# and tt_row['depth'] >= depth:
             if tt_row['flag'] == 'EXACT':
                 return tt_row['value'], node
             elif tt_row['flag'] == 'LOWERBOUND':
@@ -332,6 +336,76 @@ class NeuralNetworkAgent(object):
         self.ttable[hash_key] = tt_row
         return v, n
 
+    def negascout(self, node, depth, alpha, beta, value_function):
+
+        alpha_orig = alpha
+
+        hash_key = node.board.zobrist_hash()
+        tt_row = self.ttable.get(hash_key)
+        if tt_row is not None and tt_row['depth'] >= depth:
+            if tt_row['flag'] == 'EXACT':
+                return tt_row['value'], node
+            elif tt_row['flag'] == 'LOWERBOUND':
+                alpha = max(alpha, tt_row['value'])
+            elif tt_row['flag'] == 'UPPERBOUND':
+                beta = min(beta, tt_row['value'])
+            if alpha >= beta:
+                return tt_row['value'], node
+
+        if depth == 0 or node.board.is_game_over():
+            if node.board.turn:
+                return value_function(node.board), node
+            else:
+                return -value_function(node.board), node
+
+        children = []
+        for move in node.board.legal_moves:
+            child_board = node.board.copy()
+            child_board.push(move)
+            child = Node(str(move), parent=node, board=child_board, move=move)
+            children.append(child)
+
+        children = sorted(children, key=self.move_order_key)
+        n = node
+        for idx, child in enumerate(children):
+            if idx == 0:
+                score, nn = self.negascout(child, depth - 1, -beta, -alpha, value_function)
+                score = -score
+            else:
+                score, nn = self.negascout(child, depth - 1, -alpha - 1, -alpha, value_function)
+                score = -score
+                if alpha < score < beta:
+                    score, nn = self.negascout(child, depth - 1, -beta, -score, value_function)
+                    score = -score
+            if score > alpha:
+                alpha = score
+                n = nn
+            if alpha >= beta:
+                break
+
+        if tt_row is None:
+            tt_row = dict()
+        tt_row['value'] = score
+        if score <= alpha_orig:
+            tt_row['flag'] = 'UPPERBOUND'
+        elif score >= beta:
+            tt_row['flag'] = 'LOWERBOUND'
+        else:
+            tt_row['flag'] = 'EXACT'
+
+        tt_row['depth'] = depth
+        self.ttable[hash_key] = tt_row
+
+        return alpha, n
+
+    def move_order_key(self, node):
+        if self.ttable.get(node.board.zobrist_hash()) is not None:
+            return 0
+        elif node.parent.board.is_capture(node.move):
+            return 1
+        else:
+            return 2
+
     @staticmethod
     def is_quiet(node):
 
@@ -342,7 +416,7 @@ class NeuralNetworkAgent(object):
         if captured_piece_type is None:
             is_winning_capture = False
         else:
-            is_winning_capture = capturing_piece_type < captured_piece_type
+            is_winning_capture = capturing_piece_type > captured_piece_type
 
         is_promotion = node.move.promotion is not None
 
