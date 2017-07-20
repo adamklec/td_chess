@@ -90,7 +90,7 @@ class Chess(object):
     def pad_bitmasks(masks):
         padded_masks = np.zeros((len(masks), 64))
         for i, mask in enumerate(masks):
-            for j, bit in enumerate(bin(mask)[2:]):
+            for j, bit in enumerate(bin(mask)[:1:-1]):
                 padded_masks[i, -int(j)] = bit
         return padded_masks
 
