@@ -7,7 +7,6 @@ from os import listdir
 from anytree import Node
 from game import Chess, simple_value_from_board
 
-
 class NeuralNetworkAgent(object):
     def __init__(self,
                  name,
@@ -211,7 +210,7 @@ class NeuralNetworkAgent(object):
             print('running test suite:', name)
             # for fen, c0 in zip(df.fen[:1], df.c0[:1]):
             for fen, c0 in zip(df.fen, df.c0):
-
+                # print(fen)
                 board = Board(fen=fen)
                 self.env.reset(board=board)
                 move, _ = self.get_move(sess, self.env, depth)
@@ -352,7 +351,8 @@ class NeuralNetworkAgent(object):
             if alpha >= beta:
                 return tt_row['value'], node
 
-        if depth == 0 or node.board.is_game_over():
+        # if (depth <= 0 and self.is_quiet(node)) or node.board.is_game_over():
+        if depth <= 0 or node.board.is_game_over():
             if node.board.turn:
                 return value_function(node.board), node
             else:
@@ -366,6 +366,7 @@ class NeuralNetworkAgent(object):
             children.append(child)
 
         children = sorted(children, key=self.move_order_key)
+
         n = node
         for idx, child in enumerate(children):
             if idx == 0:
@@ -399,26 +400,29 @@ class NeuralNetworkAgent(object):
         return alpha, n
 
     def move_order_key(self, node):
-        if self.ttable.get(node.board.zobrist_hash()) is not None:
-            return 0
-        elif node.parent.board.is_capture(node.move):
-            return 1
-        else:
+        tt_row = self.ttable.get(node.board.zobrist_hash())
+        if tt_row is not None:
+            if tt_row['flag'] == 'EXACT':
+                return 0
+            if tt_row['flag'] == 'LOWERBOUND':
+                return 1
+        if node.parent.board.is_capture(node.move):
             return 2
+        else:
+            return 3
 
     @staticmethod
     def is_quiet(node):
-
         is_check = node.board.is_check()
-        capturing_piece_type = node.parent.board.piece_type_at(node.move.from_square)
-        captured_piece_type = node.parent.board.piece_type_at(node.move.to_square)
+        parent_is_check = node.parent.board.is_check()
 
-        if captured_piece_type is None:
-            is_winning_capture = False
+        if node.parent.board.is_capture(node.move):
+            capturing_piece_type = node.parent.board.piece_type_at(node.move.from_square)
+            captured_piece_type = node.parent.board.piece_type_at(node.move.to_square)
+            is_winning_capture = (capturing_piece_type < captured_piece_type)
         else:
-            is_winning_capture = capturing_piece_type > captured_piece_type
+            is_winning_capture = False
 
         is_promotion = node.move.promotion is not None
 
-        # is_capture = node.parent.board.is_capture(node.move)
-        return not (is_check or is_winning_capture or is_promotion)
+        return not (is_check or parent_is_check or is_winning_capture or is_promotion)

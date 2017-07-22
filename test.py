@@ -18,10 +18,9 @@ def main():
         sess.run(tf.global_variables_initializer())
 
         # cProfile.runctx('agent.test(sess, test_idxs=[0], depth=3)', globals(), locals())
-        agent.test(sess, depth=3)
+        agent.test(sess, depth=4)
         test_results = sess.run(agent.test_results)
         print(sum(test_results))
-
 
         # env = Chess(random_position=True, load_pgn=True)
 

@@ -11,7 +11,7 @@ class Chess(object):
 
         if self.load_pgn:
             pgn = open("millionbase-2.22.pgn")
-            self.board_generator = board_generator(pgn)
+            self.board_generator = random_board_generator(pgn)
         else:
             self.board_generator = None
 
@@ -63,17 +63,39 @@ class Chess(object):
         return legal_moves
 
 
+    # @staticmethod
+    # def make_feature_vector(board):
+    #     # 6 piece type maps + en passant square map for each color + 4 castling rights bit + 1 turn bit
+    #
+    #     feature_vector = np.zeros((1, ((len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)) * 64 + 5), dtype='float32')
+    #
+    #     masks = [board.pieces_mask(piece, color) for color in chess.COLORS for piece in chess.PIECE_TYPES]
+    #     padded_masks = Chess.pad_bitmasks(masks)
+    #     feature_vector[0, :-(128 + 5)] = np.hstack(padded_masks)
+    #     ep_square = board.ep_square
+    #     if ep_square:
+    #         feature_vector[0, -64 * (board.turn + 1) - 5 + board.ep_square] = 1
+    #
+    #     feature_vector[0, -5] = board.has_kingside_castling_rights(0)
+    #     feature_vector[0, -4] = board.has_queenside_castling_rights(0)
+    #     feature_vector[0, -3] = board.has_kingside_castling_rights(1)
+    #     feature_vector[0, -2] = board.has_queenside_castling_rights(1)
+    #     feature_vector[0, -1] = board.turn
+    #
+    #     return feature_vector
+
     @staticmethod
     def make_feature_vector(board):
-        # feature_vector = np.zeros(((len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) + 3, 64), dtype='float32')
-
         # 6 piece type maps + en passant square map for each color + 4 castling rights bit + 1 turn bit
 
         feature_vector = np.zeros((1, ((len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)) * 64 + 5), dtype='float32')
 
-        masks = [board.pieces_mask(piece, color) for color in chess.COLORS for piece in chess.PIECE_TYPES]
-        padded_masks = Chess.pad_bitmasks(masks)
-        feature_vector[0, :-(128 + 5)] = np.hstack(padded_masks)
+        for piece in range(1, 6):
+            for color in range(2):
+                squares = board.pieces(piece, color)
+                for square in squares:
+                    feature_vector[0, (piece-1) + 6 * color + 12 * square] = 1
+
         ep_square = board.ep_square
         if ep_square:
             feature_vector[0, -64 * (board.turn + 1) - 5 + board.ep_square] = 1
@@ -100,26 +122,32 @@ class Chess(object):
         pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
         values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
         for piece, value in zip(pieces, values):
-            fen = '/'.join([8 * piece for _ in range(8)]) + ' b - - 0 1'
+            fen = '/'.join([8 * piece for _ in range(8)]) + ' w - - 0 1'
             board = chess.Board(fen)
             W_1[Chess.make_feature_vector(board)[0] == 1, 0] = value
+            W_1[-5:] = 0
         return W_1
 
+
+def random_board_generator(pgn):
+    while True:
+        game = read_game(pgn)
+        if game and len(list(game.main_line())) > 0:
+            move_number = np.random.randint(0, high=len(list(game.main_line())) - 1)  # don't take the last move
+            while 2 * (game.board().fullmove_number - 1) + int(not game.board().turn) < move_number:
+                game = game.variation(0)
+            yield game.board()
+        else:
+            pgn.seek(0)
 
 def board_generator(pgn):
     while True:
         game = read_game(pgn)
-        if game and len(list(game.main_line())) > 0:
-            node = game
-            move_number = np.random.randint(0, high=len(
-                list(game.main_line())) - 1)  # don't take the last move
-            while 2 * (node.board().fullmove_number - 1) + int(
-                    not node.board().turn) < move_number:
-                next_node = node.variation(0)
-                node = next_node
-            yield node.board()
-        else:
-            pgn.seek(0)
+        if not game:
+            pgn.seek()
+        while not game.board().is_game_over():
+            game = game.variation(0)
+        yield game.board()
 
 
 def make_random_move(board):
