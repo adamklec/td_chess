@@ -1,4 +1,4 @@
-from game import Chess
+from chess_env import Chess
 import chess.uci
 
 

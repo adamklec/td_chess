@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 from agents.nn_agent import NeuralNetworkAgent
-from game import Chess
+from chess_env import Chess
 
 
 def main():

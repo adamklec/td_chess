@@ -1,5 +1,5 @@
 from random import random, choice
-from game import simple_value_from_fen
+from chess_env import simple_value_from_fen
 
 def generate_random_fen(density):
     pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']

@@ -1,5 +1,5 @@
 import tensorflow as tf
-from network import ChessNeuralNetwork
+from network import ValueNeuralNetwork
 from os import listdir
 from os.path import isfile, join
 
@@ -20,7 +20,7 @@ queue = tf.RandomShuffleQueue(1024, 512, [tf.float32, tf.float32], shapes=[(901,
 enqueue_op = queue.enqueue([X, y])
 # Create a training graph that starts by dequeuing a batch of examples.
 inputs, targets = queue.dequeue_many(512)
-network = ChessNeuralNetwork()
+network = ValueNeuralNetwork()
 loss = tf.reduce_mean((network.value - targets) ** 2)
 train_op = tf.train.AdamOptimizer().minimize(loss)
 

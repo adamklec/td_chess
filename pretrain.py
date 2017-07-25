@@ -1,5 +1,5 @@
 import numpy as np
-from network import ChessNeuralNetwork
+from network import ValueNeuralNetwork
 import tensorflow as tf
 import pickle
 import time
@@ -10,7 +10,7 @@ print('done.')
 
 ckpt_dir = "log/" + str(int(time.time()))
 
-network = ChessNeuralNetwork()
+network = ValueNeuralNetwork()
 hooks = [tf.train.StopAtStepHook(last_step=10000)]
 
 y_ = tf.placeholder(tf.float32)

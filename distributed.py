@@ -1,9 +1,10 @@
 from agents.nn_agent import NeuralNetworkAgent
-from game import Chess
+from boardgame_envs.chess_env import ChessEnv
+from boardgame_envs.tic_tac_toe_env import TicTacToeEnv
 from multiprocessing import Process
 import time
 import tensorflow as tf
-from network import ChessNeuralNetwork
+from network import ValueNeuralNetwork
 
 
 def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint_dir):
@@ -22,26 +23,27 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
         with tf.device(tf.train.replica_device_setter(
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
-            network = ChessNeuralNetwork()
+            network = ValueNeuralNetwork()
             global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
         if job_name == "tester":
-
+            # env = ChessEnv(load_pgn=True)
+            env = TicTacToeEnv()
             agent_name = 'tester_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
                                        network,
+                                       env,
                                        global_episode_count=global_episode_count,
-                                       verbose=True,
-                                       load_tests=True,
-                                       load_pgn=False)
+                                       verbose=True)
         else:
+            # env = ChessEnv(load_pgn=True, random_position=True)
+            env = TicTacToeEnv(random_position=True)
             agent_name = 'trainer_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
                                        network,
+                                       env,
                                        global_episode_count=global_episode_count,
-                                       verbose=True,
-                                       load_tests=False,
-                                       load_pgn=True)
+                                       verbose=False)
 
         summary_op = tf.summary.merge_all()
 
@@ -54,16 +56,19 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
                                                save_summaries_steps=1,
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "trainer":
+                time.sleep(30)
                 while not mon_sess.should_stop():
-                    agent.train(mon_sess, depth=1)
+                    agent.train(mon_sess, depth=3)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    agent.test(mon_sess, test_idxs=range(13)[task_idx::2], depth=1)
+                    agent.test(mon_sess, test_idxs=None, depth=3, env_type='tic_tac_toe')
+                    time.sleep(1)
+
 
 if __name__ == "__main__":
     ps_host_list = ['localhost:2222']
-    tester_host_list = ['localhost:2223', 'localhost:2224']
+    tester_host_list = ['localhost:2223']#, 'localhost:2224']
     trainer_host_list = ['localhost:2225', 'localhost:2226']
     ckpt_dir = "log/" + str(int(time.time()))
 

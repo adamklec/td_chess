@@ -1,7 +1,7 @@
 import tensorflow as tf
 from agents.nn_agent import NeuralNetworkAgent
-from game import Chess, simple_value_from_board
-from network import ChessNeuralNetwork
+from chess_env import Chess, simple_value_from_board
+from network import ValueNeuralNetwork
 import time
 import cProfile
 
@@ -10,7 +10,7 @@ def main():
     config = tf.ConfigProto(device_count={'GPU': 0})
     with tf.Session(config=config) as sess:
 
-        network = ChessNeuralNetwork()
+        network = ValueNeuralNetwork()
         global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
         agent = NeuralNetworkAgent('tester_0', network, global_episode_count=global_episode_count, load_tests=True)

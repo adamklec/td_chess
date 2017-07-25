@@ -1,13 +1,13 @@
 import numpy as np
 import pickle
-from game import Chess
+from chess_env import Chess
 import chess
 from sklearn.model_selection import train_test_split
 
 Xs = []
 ys = []
 
-with open('simple_positions.fen', 'r') as f:
+with open('stockfish_positions.fen', 'r') as f:
     for i, l in enumerate(f):
         print(i)
         fen, score = l.split(',')
@@ -18,4 +18,4 @@ with open('simple_positions.fen', 'r') as f:
 
 X_train, X_test, y_train, y_test = train_test_split(np.vstack(Xs), np.vstack(ys), test_size=.2)
 
-pickle.dump([X_train, y_train, X_test, y_test], open('simple_data.pkl', 'wb'))
+pickle.dump([X_train, y_train, X_test, y_test], open('stockfish_data.pkl', 'wb'))
