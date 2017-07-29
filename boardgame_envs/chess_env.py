@@ -143,7 +143,7 @@ class ChessEnv(BoardGameEnvBase):
         for fen, c0 in zip(df.fen, df.c0):
             board = chess.Board(fen=fen)
             self.reset(board=board)
-            move, _ = get_move_function(self)
+            move = get_move_function(self)
             reward = c0.get(board.san(move), 0)
             result += reward
         return result

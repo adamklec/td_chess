@@ -26,8 +26,8 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
             global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
         if job_name == "tester":
-            env = ChessEnv(load_pgn=True)
-            # env = TicTacToeEnv()
+            # env = ChessEnv(load_pgn=True)
+            env = TicTacToeEnv()
             network = ValueNeuralNetwork(env)
             agent_name = 'tester_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
@@ -36,15 +36,15 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
                                        global_episode_count=global_episode_count,
                                        verbose=True)
         else:
-            env = ChessEnv(load_pgn=True, random_position=True)
-            # env = TicTacToeEnv(random_position=True)
+            # env = ChessEnv(load_pgn=True, random_position=True)
+            env = TicTacToeEnv(random_position=True)
             network = ValueNeuralNetwork(env)
             agent_name = 'trainer_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
                                        network,
                                        env,
                                        global_episode_count=global_episode_count,
-                                       verbose=False)
+                                       verbose=True)
 
         summary_op = tf.summary.merge_all()
 
@@ -58,11 +58,11 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "trainer":
                 while not mon_sess.should_stop():
-                    agent.train(mon_sess, depth=3)
+                    agent.train(mon_sess, depth=1)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    agent.test(mon_sess, test_idxs=list(range(14)), depth=3)  # TODO: distribute tests among testers
+                    agent.test(mon_sess, test_idxs=list(range(14)), depth=1)  # TODO: distribute tests among testers
 
 
 if __name__ == "__main__":

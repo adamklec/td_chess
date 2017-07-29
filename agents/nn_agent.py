@@ -197,12 +197,16 @@ class NeuralNetworkAgent(object):
 
         if node.board.is_game_over():
             value = node.board.result()
+            if isinstance(value, str):
+                value = convert_string_result(value)
+
             if node.board.turn:
                 return value, node
             else:
                 return -value, node
 
-        elif (depth <= 0 and self.env.is_quiet(node.board)) or node.board.is_game_over():
+        # elif depth <= 0 and self.env.is_quiet(node.board):
+        elif depth <= 0:
             fv = self.env.make_feature_vector(node.board)
             value = value_function(fv)
             if node.board.turn:
@@ -314,3 +318,16 @@ class NeuralNetworkAgent(object):
         # self.ttable[hash_key] = tt_row
 
         return alpha, n
+
+
+def convert_string_result(string):
+    if string == '1-0':
+        return 1.0
+    elif string == '0-1':
+        return -1.0
+    elif string == '1/2-1/2':
+        return 0.0
+    elif string == '*':
+        return None
+    else:
+        raise ValueError('Invalid result encountered')
