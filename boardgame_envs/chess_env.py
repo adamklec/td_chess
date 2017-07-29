@@ -5,13 +5,14 @@ from random import choice, randint
 from .board_game_env_base import BoardGameEnvBase
 from os import listdir
 import pandas as pd
-import copy
+
 
 class ChessEnv(BoardGameEnvBase):
 
     def __init__(self, board=None, random_position=False, load_pgn=False):
         self.random_position = random_position
         self.load_pgn = load_pgn
+        self.board = board
 
         if self.load_pgn:
             pgn = open("./data/millionbase-2.22.pgn")
@@ -19,14 +20,7 @@ class ChessEnv(BoardGameEnvBase):
         else:
             self.board_generator = None
 
-        if board is None:
-            if random_position:
-                for _ in range(randint(1, 100)):  # non-optimal pseudo-random generator.
-                    self.board = self.board_generator.__next__()
-            else:
-                self.board = chess.Board()
-        else:
-            self.board = board
+        self.reset(board)
 
     def get_board(self):
         return self.board
@@ -39,10 +33,10 @@ class ChessEnv(BoardGameEnvBase):
 
     def reset(self, board=None):
         if board is None:
+            # skip through a random number of boards to avoid different threads training on the same board.
             if self.random_position:
-                for _ in range(randint(1, 100)):  # non-optimal pseudo-random generator.
+                for _ in range(randint(1, 100)):
                     self.board = self.board_generator.__next__()
-
             else:
                 self.board = chess.Board()
         else:
@@ -75,8 +69,10 @@ class ChessEnv(BoardGameEnvBase):
         legal_moves = list(board.legal_moves)
         return legal_moves
 
-    @staticmethod
-    def make_feature_vector(board):
+    def make_feature_vector(self, board=None):
+        if board is None:
+            board = self.board
+
         # 6 piece type maps + en passant square map for each color + 4 castling rights bit + 1 turn bit
 
         feature_vector = np.zeros((1, ((len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)) * 64 + 5), dtype='float32')
@@ -145,26 +141,27 @@ class ChessEnv(BoardGameEnvBase):
         print('running test suite:', name)
         # for fen, c0 in zip(df.fen[:1], df.c0[:1]):
         for fen, c0 in zip(df.fen, df.c0):
-            # print(fen)
             board = chess.Board(fen=fen)
             self.reset(board=board)
             move, _ = get_move_function(self)
-            # move = choice(list(board.legal_moves))
             reward = c0.get(board.san(move), 0)
             result += reward
         return result
 
-def get_simple_value_weights():
-    env = ChessEnv()
-    W_1 = np.zeros((901, 1))
-    pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
-    values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
-    for piece, value in zip(pieces, values):
-        fen = '/'.join([8 * piece for _ in range(8)]) + ' w - - 0 1'
-        board = chess.Board(fen)
-        W_1[env.make_feature_vector(board)[0] == 1, 0] = value
-        W_1[-5:] = 0
-    return W_1
+    def get_feature_vector_size(self):
+        return self.make_feature_vector().shape[1]
+
+    def get_simple_value_weights(self):
+        fv_size = self.get_feature_vector_size()
+        W_1 = np.zeros((fv_size, 1))
+        pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
+        values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
+        for piece, value in zip(pieces, values):
+            fen = '/'.join([8 * piece for _ in range(8)]) + ' w - - 0 1'
+            board = chess.Board(fen)
+            W_1[self.make_feature_vector(board)[0] == 1, 0] = value
+            W_1[-5:] = 0
+        return W_1
 
 
 def random_board_generator(pgn):

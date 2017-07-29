@@ -17,6 +17,10 @@ class BoardGameEnvBase(metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
+    def get_feature_vector_size(self):
+        return NotImplemented
+
+    @abstractmethod
     def reset(self, board=None):
         return NotImplemented
 
@@ -32,14 +36,13 @@ class BoardGameEnvBase(metaclass=ABCMeta):
     def get_legal_moves(self, board=None):
         return NotImplemented
 
-    @staticmethod
     @abstractmethod
-    def is_quiet(board):
+    def make_feature_vector(self, board=None):
         return NotImplemented
 
     @staticmethod
     @abstractmethod
-    def make_feature_vector(board):
+    def is_quiet(board):
         return NotImplemented
 
     @staticmethod

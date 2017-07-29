@@ -23,12 +23,12 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
         with tf.device(tf.train.replica_device_setter(
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
-            network = ValueNeuralNetwork()
             global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
         if job_name == "tester":
-            # env = ChessEnv(load_pgn=True)
-            env = TicTacToeEnv()
+            env = ChessEnv(load_pgn=True)
+            # env = TicTacToeEnv()
+            network = ValueNeuralNetwork(env)
             agent_name = 'tester_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
                                        network,
@@ -36,8 +36,9 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
                                        global_episode_count=global_episode_count,
                                        verbose=True)
         else:
-            # env = ChessEnv(load_pgn=True, random_position=True)
-            env = TicTacToeEnv(random_position=True)
+            env = ChessEnv(load_pgn=True, random_position=True)
+            # env = TicTacToeEnv(random_position=True)
+            network = ValueNeuralNetwork(env)
             agent_name = 'trainer_' + str(task_index)
             agent = NeuralNetworkAgent(agent_name,
                                        network,
@@ -61,7 +62,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    agent.test(mon_sess, test_idxs=None, depth=3, env_type='tic_tac_toe')
+                    agent.test(mon_sess, test_idxs=list(range(14)), depth=3)  # TODO: distribute tests among testers
 
 
 if __name__ == "__main__":

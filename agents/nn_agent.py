@@ -132,9 +132,12 @@ class NeuralNetworkAgent(object):
         with open("data/move_log.txt", "a") as move_log:
             move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
 
-    def test(self, sess, test_idxs, depth=1, env_type='chess'):
+    def test(self, sess, test_idxs, depth=1):
 
-        if env_type == 'chess':
+        from boardgame_envs.chess_env import ChessEnv
+        from boardgame_envs.tic_tac_toe_env import TicTacToeEnv
+
+        if isinstance(self.env, ChessEnv):
             for test_idx in test_idxs:
                 result = self.env.test(self.get_move_function(sess, depth), test_idx)
                 sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
@@ -145,7 +148,7 @@ class NeuralNetworkAgent(object):
                       "TEST TOTAL:", result)
                 print(sess.run(self.test_results))
 
-        elif env_type == 'tic_tac_toe':
+        elif isinstance(self.env, TicTacToeEnv):
             result = self.env.test(self.get_move_function(sess, depth), None)
             for i, r in enumerate(result):
                 sess.run(self.update_test_results, feed_dict={self.test_idx_: i,

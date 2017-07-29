@@ -52,8 +52,8 @@ class TicTacToeEnv(BoardGameEnvBase):
         fv = np.zeros((1, 28))
         fv[0, :9] = board.xs.reshape(9)
         fv[0, 9:18] = board.os.reshape(9)
-        fv[0, 18:27] = ((board.xs + board.os).reshape(9) == 0).astype(int)
-        fv[0, -1] = int(board.turn)
+        fv[0, 18:27] = ((board.xs + board.os).reshape(9) == 0).astype(float)
+        fv[0, -1] = float(board.turn)
         return fv
 
     def _print(self, board=None):
@@ -137,6 +137,13 @@ class TicTacToeEnv(BoardGameEnvBase):
 
         return [x_counter[1], x_counter[0], x_counter[-1], o_counter[1], o_counter[0], o_counter[-1]]
 
+    def get_feature_vector_size(self):
+        return self.make_feature_vector().shape[1]
+
+    def get_simple_value_weights(self):
+        fv_size = self.get_feature_vector_size()
+        return np.zeros((fv_size, 1))
+
     @staticmethod
     def is_quiet(board):
         return True
@@ -148,6 +155,8 @@ class TicTacToeEnv(BoardGameEnvBase):
 
 class TicTacToeBoard(BoardBase):
     def __init__(self, fen=None):
+        super().__init__()
+
         self.xs = np.zeros((3, 3))
         self.os = np.zeros((3, 3))
         self._legal_moves = np.arange(9)
