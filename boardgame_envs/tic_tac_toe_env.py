@@ -185,6 +185,7 @@ class TicTacToeBoard(BoardBase):
                 fen += 'O'
             else:
                 fen += '-'
+        return fen
 
     def push(self, move):
         row = int(move / 3)
@@ -200,19 +201,28 @@ class TicTacToeBoard(BoardBase):
         self._turn = not self._turn
         self._legal_moves = np.where((self.xs + self.os).reshape(9) == 0)[0]
 
+    def pop(self):
+        move = self.move_stack[-1]
+        self.move_stack = self.move_stack[:-1]
+
+        row = int(move / 3)
+        col = move % 3
+
+        self.xs[row, col] = 0
+        self.os[row, col] = 0
+
+        return move
+
     def is_game_over(self):
-        if (self.xs + self.os).sum() == 9:
-            return True
-        else:
-            return False
+        return self.result() is not None
 
     def result(self):
         if any(self.xs.sum(axis=0) == 3) or any(self.xs.sum(axis=1) == 3) or self.xs[np.eye(3) == 1].sum() == 3 or self.xs[np.rot90(np.eye(3)) == 1].sum() == 3:
-            return 1
+            return 1.0
         elif any(self.os.sum(axis=0) == 3) or any(self.os.sum(axis=1) == 3) or self.os[np.eye(3) == 1].sum() == 3 or self.os[np.rot90(np.eye(3)) == 1].sum() == 3:
-            return -1
+            return -1.0
         elif (self.xs + self.os).sum() == 9:
-            return 0
+            return 0.0
         else:
             return None
 

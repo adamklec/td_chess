@@ -47,28 +47,26 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
 
         summary_op = tf.summary.merge_all()
 
-        hooks = [tf.train.StopAtStepHook(last_step=10000)]
+        # hooks = [tf.train.StopAtStepHook(last_step=10000)]
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=(task_index == 0 and job_name == 'trainer'),
                                                checkpoint_dir=checkpoint_dir,
-                                               hooks=hooks,
-                                               save_summaries_steps=1,
+                                               # hooks=hooks,
+                                               save_summaries_steps=10,
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "trainer":
-                time.sleep(30)
                 while not mon_sess.should_stop():
                     agent.train(mon_sess, depth=3)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
                     agent.test(mon_sess, test_idxs=None, depth=3, env_type='tic_tac_toe')
-                    time.sleep(1)
 
 
 if __name__ == "__main__":
     ps_host_list = ['localhost:2222']
-    tester_host_list = ['localhost:2223']#, 'localhost:2224']
+    tester_host_list = ['localhost:2223']  #, 'localhost:2224']
     trainer_host_list = ['localhost:2225', 'localhost:2226']
     ckpt_dir = "log/" + str(int(time.time()))
 
