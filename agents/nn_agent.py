@@ -66,10 +66,8 @@ class NeuralNetworkAgent(object):
 
         self.grad_vars = self.trainer.compute_gradients(self.neural_network.value, self.neural_network.trainable_variables)
         self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.neural_network.trainable_variables]
-        # self.apply_grads = self.trainer.apply_gradients(zip([tf.clip_by_norm(grad_, .01) for grad_ in self.grad_s],
-        #                                                     self.neural_network.trainable_variables), name='apply_grads')
-
         self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s, self.neural_network.trainable_variables), name='apply_grads')
+
     def train(self, sess, depth=1):
         global_episode_count = sess.run(self.global_episode_count)
         sess.run(self.increment_global_episode_count_op)
@@ -102,12 +100,7 @@ class NeuralNetworkAgent(object):
             self.env.make_move(move)
             turn_count += 1
 
-        # if reward is not None:
-        #     value_seq.append(reward)
-        # else:
-        #     value_seq.append(value_seq[-1])
-
-        value_seq.append(value_seq[-1])
+        value_seq.append(value_seq[-1])  # repeating the last value so that delta==0 for the last time step
 
         deltas = [value_seq[i+1] - value_seq[i] for i in range(len(value_seq) - 1)]
         grad_accums = [np.zeros_like(grad) for grad in grads_seq[0]]
@@ -123,7 +116,7 @@ class NeuralNetworkAgent(object):
                                                      for grad_accum_, grad_accum in zip(self.grad_accum_s, grad_accums)})
 
         if run_update:
-            print('global_episode_count:', global_episode_count, 'UPDATING!')
+            print('global_episode_count:', global_episode_count)
 
             sess.run(self.apply_grads, feed_dict={grad_: grad_accum
                                                   for grad_, grad_accum in zip(self.grad_s, grad_accums)})
