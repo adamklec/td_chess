@@ -21,37 +21,31 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_dir):
         with tf.device(tf.train.replica_device_setter(
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
-            global_episode_count = tf.contrib.framework.get_or_create_global_step()
 
-        if job_name == "tester":
-            # env = ChessEnv(load_pgn=True)
-            env = TicTacToeEnv()
-            network = ValueModel(env)
-            agent_name = 'tester_' + str(task_index)
-            agent = TDLeafAgent(agent_name,
-                                network,
-                                env,
-                                global_episode_count=global_episode_count,
-                                verbose=True)
-        else:
-            # env = ChessEnv(load_pgn=True, random_position=True)
-            env = TicTacToeEnv(random_position=True)
-            network = ValueModel(env)
-            agent_name = 'trainer_' + str(task_index)
-            agent = TDLeafAgent(agent_name,
-                                network,
-                                env,
-                                global_episode_count=global_episode_count,
-                                verbose=False)
+            if job_name == "tester":
+                # env = ChessEnv(load_pgn=True)
+                env = TicTacToeEnv()
+                network = ValueModel(env)
+                agent_name = 'tester_' + str(task_index)
+                agent = TDLeafAgent(agent_name,
+                                    network,
+                                    env,
+                                    verbose=True)
+            else:
+                # env = ChessEnv(load_pgn=True, random_position=True)
+                env = TicTacToeEnv(random_position=True)
+                network = ValueModel(env)
+                agent_name = 'trainer_' + str(task_index)
+                agent = TDLeafAgent(agent_name,
+                                    network,
+                                    env,
+                                    verbose=False)
 
-        summary_op = tf.summary.merge_all()
-
-        # hooks = [tf.train.StopAtStepHook(last_step=10000)]
+            summary_op = tf.summary.merge_all()
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=(task_index == 0 and job_name == 'trainer'),
                                                checkpoint_dir=log_dir,
-                                               # hooks=hooks,
                                                save_summaries_steps=10,
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
             if job_name == "trainer":

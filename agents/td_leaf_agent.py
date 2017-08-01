@@ -6,27 +6,19 @@ from anytree import Node
 class TDLeafAgent(object):
     def __init__(self,
                  name,
-                 network,
+                 model,
                  env,
-                 global_episode_count,
-                 checkpoint=None,
-                 verbose=False,
-                 model_path="/Users/adam/Documents/projects/td_chess/model"):
+                 verbose=False):
 
         self.name = name
-        self.global_episode_count = global_episode_count
+        self.global_episode_count = tf.contrib.framework.get_or_create_global_step()
+        with tf.variable_scope('episode_count'):
+            self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
 
         self.env = env
 
-        self.checkpoint = checkpoint
         self.verbose = verbose
-        self.model_path = model_path
         self.ttable = dict()
-
-        # self.game_turn_count = tf.Variable(0, name='game_turn_count')
-        # self.game_turn_count_ = tf.placeholder(tf.int32, name='game_turn_count_')
-        # self.set_game_turn_count_op = tf.assign(self.game_turn_count, self.game_turn_count_, name='set_game_turn_count')
-        # tf.summary.scalar("game_turn_count", self.game_turn_count)
 
         self.test_score_ = tf.placeholder(tf.float32, name='test_score_')
         self.test_results = tf.Variable(tf.zeros((14,)), name="test_results")
@@ -40,33 +32,30 @@ class TDLeafAgent(object):
         for i in range(14):
             tf.summary.scalar("test_" + str(i), tf.reduce_sum(tf.slice(self.test_results, [i], [1])))
 
-        self.neural_network = network
+        self.model = model
 
         with tf.variable_scope('grad_accums'):
-            self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False) for tvar in self.neural_network.trainable_variables]
-            self.grad_accum_s = [tf.placeholder(tf.float32, tvar.get_shape()) for tvar in self.neural_network.trainable_variables]
+            self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False) for tvar in self.model.trainable_variables]
+            self.grad_accum_s = [tf.placeholder(tf.float32, tvar.get_shape()) for tvar in self.model.trainable_variables]
 
             self.reset_grad_accums = [tf.assign(grad_accum, tf.zeros_like(tvar))
-                                      for grad_accum, tvar in zip(self.grad_accums, self.neural_network.trainable_variables)]
+                                      for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
             self.update_grad_accums = [tf.assign_add(grad_accum, grad_accum_)
                                       for grad_accum, grad_accum_ in zip(self.grad_accums, self.grad_accum_s)]
 
-        for tvar in self.neural_network.trainable_variables:
+        for tvar in self.model.trainable_variables:
             tf.summary.histogram(tvar.op.name, tvar)
 
         for grad_accum in self.grad_accums:
             tf.summary.histogram(grad_accum.op.name, grad_accum)
 
         self.trainer = tf.train.AdamOptimizer()
-        if self.global_episode_count is not None:
-            with tf.variable_scope('episode_count'):
-                self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
 
         self.lamda = .7
 
-        self.grad_vars = self.trainer.compute_gradients(self.neural_network.value, self.neural_network.trainable_variables)
-        self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.neural_network.trainable_variables]
-        self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s, self.neural_network.trainable_variables), name='apply_grads')
+        self.grad_vars = self.trainer.compute_gradients(self.model.value, self.model.trainable_variables)
+        self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.model.trainable_variables]
+        self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s, self.model.trainable_variables), name='apply_grads')
 
     def train(self, sess, depth=1):
         global_episode_count = sess.run(self.global_episode_count)
@@ -91,7 +80,7 @@ class TDLeafAgent(object):
 
             feature_vector = self.env.make_feature_vector(leaf_node.board)
             grad_vars = sess.run(self.grad_vars,
-                                 feed_dict={self.neural_network.feature_vector_: feature_vector})
+                                 feed_dict={self.model.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
 
             value_seq.append(leaf_value)
@@ -162,7 +151,7 @@ class TDLeafAgent(object):
     def get_move(self, sess, env, depth):
         self.ttable = dict()
         node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.neural_network.value_function(sess))
+        leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.model.value_function(sess))
 
         if len(leaf_node.path) > 1:
             move = leaf_node.path[1].move
