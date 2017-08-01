@@ -1,14 +1,14 @@
 import tensorflow as tf
 from agents.human_agent import HumanAgent
 from agents.random_agent import RandomAgent
-from agents.nn_agent import NeuralNetworkAgent
-from chess_env import Chess
+from agents.td_leaf_agent import TDLeafAgent
+from boardgame_envs.chess_env import ChessEnv
 import chess
 
 
 def main():
     with tf.Session() as sess:
-        env = Chess()
+        env = ChessEnv()
         # nn_agent = NeuralNetworkAgent(sess, restore=True)
         # players = [nn_agent, nn_agent]
         players = [RandomAgent(), RandomAgent()]

@@ -3,7 +3,7 @@ import numpy as np
 from anytree import Node
 
 
-class NeuralNetworkAgent(object):
+class TDLeafAgent(object):
     def __init__(self,
                  name,
                  network,

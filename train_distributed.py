@@ -1,10 +1,10 @@
-from agents.nn_agent import NeuralNetworkAgent
+from agents.td_leaf_agent import TDLeafAgent
 from boardgame_envs.chess_env import ChessEnv
 from boardgame_envs.tic_tac_toe_env import TicTacToeEnv
 from multiprocessing import Process
 import time
 import tensorflow as tf
-from network import ValueNeuralNetwork
+from value_model import ValueModel
 
 
 def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint_dir):
@@ -17,9 +17,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
 
     if job_name == "ps":
         server.join()
-
     else:
-
         with tf.device(tf.train.replica_device_setter(
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
@@ -28,23 +26,23 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
         if job_name == "tester":
             # env = ChessEnv(load_pgn=True)
             env = TicTacToeEnv()
-            network = ValueNeuralNetwork(env)
+            network = ValueModel(env)
             agent_name = 'tester_' + str(task_index)
-            agent = NeuralNetworkAgent(agent_name,
-                                       network,
-                                       env,
-                                       global_episode_count=global_episode_count,
-                                       verbose=True)
+            agent = TDLeafAgent(agent_name,
+                                network,
+                                env,
+                                global_episode_count=global_episode_count,
+                                verbose=True)
         else:
             # env = ChessEnv(load_pgn=True, random_position=True)
             env = TicTacToeEnv(random_position=True)
-            network = ValueNeuralNetwork(env)
+            network = ValueModel(env)
             agent_name = 'trainer_' + str(task_index)
-            agent = NeuralNetworkAgent(agent_name,
-                                       network,
-                                       env,
-                                       global_episode_count=global_episode_count,
-                                       verbose=True)
+            agent = TDLeafAgent(agent_name,
+                                network,
+                                env,
+                                global_episode_count=global_episode_count,
+                                verbose=False)
 
         summary_op = tf.summary.merge_all()
 

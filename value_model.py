@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-class ValueNeuralNetwork(object):
+class ValueModel(object):
     def __init__(self, env):
         # We are passing the environment in to the network so that when we are training on a chess environment
         # we can initialize the network to know about piece values
