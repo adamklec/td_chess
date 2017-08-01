@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from boardgame_envs.chess_env import ChessBoard
+from envs.chess import ChessBoard
 
 
 class BoardBase(metaclass=ABCMeta):

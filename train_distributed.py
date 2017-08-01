@@ -1,13 +1,13 @@
 from agents.td_leaf_agent import TDLeafAgent
-from boardgame_envs.chess_env import ChessEnv
-from boardgame_envs.tic_tac_toe_env import TicTacToeEnv
+from envs.chess import ChessEnv
+from envs.tic_tac_toe import TicTacToeEnv
 from multiprocessing import Process
 import time
 import tensorflow as tf
 from value_model import ValueModel
 
 
-def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint_dir):
+def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_dir):
 
     cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
 
@@ -50,7 +50,7 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, checkpoint
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=(task_index == 0 and job_name == 'trainer'),
-                                               checkpoint_dir=checkpoint_dir,
+                                               checkpoint_dir=log_dir,
                                                # hooks=hooks,
                                                save_summaries_steps=10,
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:

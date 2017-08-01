@@ -2,7 +2,7 @@ import numpy as np
 import chess
 from chess.pgn import read_game
 from random import choice, randint
-from .board_game_env_base import BoardGameEnvBase
+from .board_game_base import BoardGameEnvBase
 from os import listdir
 import pandas as pd
 

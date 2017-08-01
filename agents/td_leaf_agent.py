@@ -134,8 +134,8 @@ class TDLeafAgent(object):
 
     def test(self, sess, test_idxs, depth=1):
 
-        from boardgame_envs.chess_env import ChessEnv
-        from boardgame_envs.tic_tac_toe_env import TicTacToeEnv
+        from envs.chess import ChessEnv
+        from envs.tic_tac_toe import TicTacToeEnv
 
         if isinstance(self.env, ChessEnv):
             for test_idx in test_idxs:

@@ -1,8 +1,8 @@
 import tensorflow as tf
 
 from agents.td_leaf_agent import TDLeafAgent
-from boardgame_envs.chess_env import ChessEnv
-from boardgame_envs.tic_tac_toe_env import TicTacToeEnv
+from envs.chess import ChessEnv
+from envs.tic_tac_toe import TicTacToeEnv
 from value_model import ValueModel
 
 def main():

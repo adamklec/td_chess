@@ -35,4 +35,3 @@ class ValueModel(object):
                              feed_dict={self.feature_vector_: fv})
             return value
         return f
-

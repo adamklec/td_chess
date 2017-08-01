@@ -1,5 +1,5 @@
 import numpy as np
-from .board_game_env_base import BoardGameEnvBase, BoardBase
+from .board_game_base import BoardGameEnvBase, BoardBase
 from agents.random_agent import RandomAgent
 from collections import Counter
 from copy import deepcopy
