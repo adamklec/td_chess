@@ -131,7 +131,7 @@ class ChessEnv(BoardGameEnvBase):
 
     def test(self, get_move_function, test_idx):
         tests = []
-        path = "/Users/adam/Documents/projects/td_board_game/chess_test_suite/"
+        path = "./chess_tests/"
         for filename in listdir(path):
             tests.append((parse_tests(path + filename), filename))
 
