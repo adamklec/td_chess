@@ -7,7 +7,7 @@ import tensorflow as tf
 from value_model import ValueModel
 
 
-def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_dir):
+def work(env, job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_dir):
 
     cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
 
@@ -23,8 +23,6 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_dir):
                 cluster=cluster)):
 
             if job_name == "tester":
-                # env = ChessEnv(load_pgn=True)
-                env = TicTacToeEnv()
                 network = ValueModel(env)
                 agent_name = 'tester_' + str(task_index)
                 agent = TDLeafAgent(agent_name,
@@ -32,8 +30,6 @@ def work(job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_dir):
                                     env,
                                     verbose=True)
             else:
-                # env = ChessEnv(load_pgn=True, random_position=True)
-                env = TicTacToeEnv(random_position=True)
                 network = ValueModel(env)
                 agent_name = 'trainer_' + str(task_index)
                 agent = TDLeafAgent(agent_name,
@@ -61,23 +57,27 @@ if __name__ == "__main__":
     ps_host_list = ['localhost:2222']
     tester_host_list = ['localhost:2223']  #, 'localhost:2224']
     trainer_host_list = ['localhost:2225', 'localhost:2226']
-    ckpt_dir = "log/" + str(int(time.time()))
+    ckpt_dir = "./log/" + str(int(time.time()))
 
     processes = []
 
     for task_idx, _ in enumerate(ps_host_list):
-        p = Process(target=work, args=('ps', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
+        p = Process(target=work, args=(None, 'ps', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
         processes.append(p)
         p.start()
         time.sleep(2)
 
     for task_idx, _ in enumerate(tester_host_list):
-        p = Process(target=work, args=('tester', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
+        # env = ChessEnv(load_pgn=True)
+        env = TicTacToeEnv()
+        p = Process(target=work, args=(env, 'tester', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
         processes.append(p)
         p.start()
 
     for task_idx, _ in enumerate(trainer_host_list):
-        p = Process(target=work, args=('trainer', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
+        # env = ChessEnv(load_pgn=True, random_position=True)
+        env = TicTacToeEnv(random_position=True)
+        p = Process(target=work, args=(env, 'trainer', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
         processes.append(p)
         p.start()
 

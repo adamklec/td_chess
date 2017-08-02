@@ -21,7 +21,7 @@ class TDLeafAgent(object):
         self.ttable = dict()
 
         self.test_score_ = tf.placeholder(tf.float32, name='test_score_')
-        self.test_results = tf.Variable(tf.zeros((14,)), name="test_results")
+        self.test_results = tf.Variable(tf.zeros((14,)), name="test_results", trainable=False)
         self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
         self.test_result_ = tf.placeholder(tf.float32, name='test_result_')
 
@@ -147,6 +147,9 @@ class TDLeafAgent(object):
             test_results = sess.run(self.test_results)
             print('X:', test_results[:3])
             print('O:', test_results[3:6])
+
+    def load_session(self, sess):
+        self.sess_ = sess
 
     def get_move(self, sess, env, depth):
         self.ttable = dict()
