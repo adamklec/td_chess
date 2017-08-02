@@ -69,13 +69,12 @@ class ChessEnv(BoardGameEnvBase):
         legal_moves = list(board.legal_moves)
         return legal_moves
 
-    def make_feature_vector(self, board=None):
-        if board is None:
-            board = self.board
-
+    @classmethod
+    def make_feature_vector(cls, board):
         # 6 piece type maps + en passant square map for each color + 4 castling rights bit + 1 turn bit
+        fv_size = cls.get_feature_vector_size()
 
-        feature_vector = np.zeros((1, ((len(chess.PIECE_TYPES) + 1) * len(chess.COLORS)) * 64 + 5), dtype='float32')
+        feature_vector = np.zeros((1, fv_size), dtype='float32')
 
         for piece in range(1, 6):
             for color in range(2):
@@ -132,7 +131,7 @@ class ChessEnv(BoardGameEnvBase):
 
     def test(self, get_move_function, test_idx):
         tests = []
-        path = "/Users/adam/Documents/projects/td_chess/STS[1-14]/"
+        path = "/Users/adam/Documents/projects/td_board_game/chess_test_suite/"
         for filename in listdir(path):
             tests.append((parse_tests(path + filename), filename))
 
@@ -148,18 +147,20 @@ class ChessEnv(BoardGameEnvBase):
             result += reward
         return result
 
-    def get_feature_vector_size(self):
-        return self.make_feature_vector().shape[1]
+    @staticmethod
+    def get_feature_vector_size():
+        return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
 
-    def get_simple_value_weights(self):
-        fv_size = self.get_feature_vector_size()
+    @classmethod
+    def get_simple_value_weights(cls):
+        fv_size = cls.get_feature_vector_size()
         W_1 = np.zeros((fv_size, 1))
         pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
         values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
         for piece, value in zip(pieces, values):
             fen = '/'.join([8 * piece for _ in range(8)]) + ' w - - 0 1'
             board = chess.Board(fen)
-            W_1[self.make_feature_vector(board)[0] == 1, 0] = value
+            W_1[cls.make_feature_vector(board)[0] == 1, 0] = value
             W_1[-5:] = 0
         return W_1
 

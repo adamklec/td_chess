@@ -16,8 +16,9 @@ class BoardGameEnvBase(metaclass=ABCMeta):
     def get_move_stack(self):
         return NotImplemented
 
+    @staticmethod
     @abstractmethod
-    def get_feature_vector_size(self):
+    def get_feature_vector_size():
         return NotImplemented
 
     @abstractmethod
@@ -36,8 +37,9 @@ class BoardGameEnvBase(metaclass=ABCMeta):
     def get_legal_moves(self, board=None):
         return NotImplemented
 
+    @classmethod
     @abstractmethod
-    def make_feature_vector(self, board=None):
+    def make_feature_vector(cls, board):
         return NotImplemented
 
     @staticmethod

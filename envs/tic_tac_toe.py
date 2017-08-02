@@ -46,13 +46,13 @@ class TicTacToeEnv(BoardGameEnvBase):
             board = self.board
         return board.legal_moves
 
-    def make_feature_vector(self, board=None):
-        if board is None:
-            board = self.board
-        fv = np.zeros((1, 28))
+    @classmethod
+    def make_feature_vector(cls, board):
+        fv_size = cls.get_feature_vector_size()
+        fv = np.zeros((1, fv_size))
         fv[0, :9] = board.xs.reshape(9)
         fv[0, 9:18] = board.os.reshape(9)
-        fv[0, 18:27] = ((board.xs + board.os).reshape(9) == 0).astype(float)
+        fv[0, 18:27] = ((board.xs + board.os).reshape(9) == 0)
         fv[0, -1] = float(board.turn)
         return fv
 
@@ -137,12 +137,9 @@ class TicTacToeEnv(BoardGameEnvBase):
 
         return [x_counter[1], x_counter[0], x_counter[-1], o_counter[1], o_counter[0], o_counter[-1]]
 
-    def get_feature_vector_size(self):
-        return self.make_feature_vector().shape[1]
-
-    def get_simple_value_weights(self):
-        fv_size = self.get_feature_vector_size()
-        return np.zeros((fv_size, 1))
+    @staticmethod
+    def get_feature_vector_size():
+        return 28
 
     @staticmethod
     def is_quiet(board):
@@ -169,9 +166,9 @@ class TicTacToeBoard(BoardBase):
                 row = int(i / 3)
                 col = i % 3
                 if char == 'X':
-                    self.xs[row, col] = 1
+                    self.xs[row, col] = 1.0
                 elif char == 'O':
-                    self.xs[row, col] = 1
+                    self.xs[row, col] = 1.0
                 else:
                     assert char == '-'
             self._turn = bool((self.xs.sum() + self.os.sum()) % 2)
@@ -226,9 +223,9 @@ class TicTacToeBoard(BoardBase):
         return self.result() is not None
 
     def result(self):
-        if any(self.xs.sum(axis=0) == 3) or any(self.xs.sum(axis=1) == 3) or self.xs[np.eye(3) == 1].sum() == 3 or self.xs[np.rot90(np.eye(3)) == 1].sum() == 3:
+        if any(self.xs.sum(axis=0) == 3.0) or any(self.xs.sum(axis=1) == 3.0) or self.xs[np.eye(3) == 1.0].sum() == 3.0 or self.xs[np.rot90(np.eye(3)) == 1].sum() == 3.0:
             return 1.0
-        elif any(self.os.sum(axis=0) == 3) or any(self.os.sum(axis=1) == 3) or self.os[np.eye(3) == 1].sum() == 3 or self.os[np.rot90(np.eye(3)) == 1].sum() == 3:
+        elif any(self.os.sum(axis=0) == 3.0) or any(self.os.sum(axis=1) == 3.0) or self.os[np.eye(3) == 1.0].sum() == 3.0 or self.os[np.rot90(np.eye(3)) == 1].sum() == 3.0:
             return -1.0
         elif (self.xs + self.os).sum() == 9:
             return 0.0

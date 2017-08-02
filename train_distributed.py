@@ -5,11 +5,10 @@ from multiprocessing import Process
 import time
 import tensorflow as tf
 from value_model import ValueModel
+from chess_value_model import ChessValueModel
 
 
-def work(env, job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_dir):
-
-    cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
+def work(env, job_name, task_index, cluster, log_dir):
 
     server = tf.train.Server(cluster,
                              job_name=job_name,
@@ -22,15 +21,19 @@ def work(env, job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_d
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
 
+            fv_size = env.get_feature_vector_size()
+
             if job_name == "tester":
-                network = ValueModel(env)
+                # network = ValueModel(fv_size)
+                network = ChessValueModel()
                 agent_name = 'tester_' + str(task_index)
                 agent = TDLeafAgent(agent_name,
                                     network,
                                     env,
                                     verbose=True)
             else:
-                network = ValueModel(env)
+                # network = ValueModel(fv_size)
+                network = ChessValueModel()
                 agent_name = 'trainer_' + str(task_index)
                 agent = TDLeafAgent(agent_name,
                                     network,
@@ -54,30 +57,31 @@ def work(env, job_name, task_index, ps_hosts, tester_hosts, trainer_hosts, log_d
 
 
 if __name__ == "__main__":
-    ps_host_list = ['localhost:2222']
-    tester_host_list = ['localhost:2223']  #, 'localhost:2224']
-    trainer_host_list = ['localhost:2225', 'localhost:2226']
+    ps_hosts = ['localhost:2222']
+    tester_hosts = ['localhost:2223']  #, 'localhost:2224']
+    trainer_hosts = ['localhost:2225', 'localhost:2226']
     ckpt_dir = "./log/" + str(int(time.time()))
+    cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
 
     processes = []
 
-    for task_idx, _ in enumerate(ps_host_list):
-        p = Process(target=work, args=(None, 'ps', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
+    for task_idx, _ in enumerate(ps_hosts):
+        p = Process(target=work, args=(None, 'ps', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
         time.sleep(2)
 
-    for task_idx, _ in enumerate(tester_host_list):
-        # env = ChessEnv(load_pgn=True)
-        env = TicTacToeEnv()
-        p = Process(target=work, args=(env, 'tester', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
+    for task_idx, _ in enumerate(tester_hosts):
+        env = ChessEnv(load_pgn=True)
+        # env = TicTacToeEnv()
+        p = Process(target=work, args=(env, 'tester', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
 
-    for task_idx, _ in enumerate(trainer_host_list):
-        # env = ChessEnv(load_pgn=True, random_position=True)
-        env = TicTacToeEnv(random_position=True)
-        p = Process(target=work, args=(env, 'trainer', task_idx, ps_host_list, tester_host_list, trainer_host_list, ckpt_dir,))
+    for task_idx, _ in enumerate(trainer_hosts):
+        env = ChessEnv(load_pgn=True, random_position=True)
+        # env = TicTacToeEnv(random_position=True)
+        p = Process(target=work, args=(env, 'trainer', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
 
