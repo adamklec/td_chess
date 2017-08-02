@@ -11,6 +11,7 @@ def main():
         env = TicTacToeEnv()
         model = ValueModel(env)
         agent = TDLeafAgent('agent_0', model, env)
+        agent.load_session(sess)
         human = HumanAgent()
         sess.run(tf.global_variables_initializer())
 
@@ -18,7 +19,9 @@ def main():
         saver = tf.train.import_meta_graph(last_log_dir + '/model.ckpt-0.meta', clear_devices=True)
         saver.restore(sess, tf.train.latest_checkpoint(last_log_dir))
 
-        players = [human, agent]
+        # players = [human, agent]
+        players = [agent, human]
+
         env.play(players, verbose=True)
 
 if __name__ == "__main__":

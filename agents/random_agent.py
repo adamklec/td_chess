@@ -1,7 +1,8 @@
+from agents.agent_base import AgentBase
 import random
 
 
-class RandomAgent(object):
+class RandomAgent(AgentBase):
     def get_move(self, env):
         legal_moves = env.get_legal_moves()
         move = random.choice(legal_moves)

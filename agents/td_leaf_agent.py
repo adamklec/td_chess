@@ -1,9 +1,10 @@
 import tensorflow as tf
 import numpy as np
 from anytree import Node
+from agents.agent_base import AgentBase
 
 
-class TDLeafAgent(object):
+class TDLeafAgent(AgentBase):
     def __init__(self,
                  name,
                  model,
@@ -75,7 +76,7 @@ class TDLeafAgent(object):
         turn_count = 0
 
         while self.env.get_reward() is None and turn_count < 10:
-            move, leaf_value, leaf_node = self.get_move(sess, self.env, depth)
+            move, leaf_value, leaf_node = self.search_tree(sess, self.env, depth)
             selected_moves.append(move)
 
             feature_vector = self.env.make_feature_vector(leaf_node.board)
@@ -151,7 +152,11 @@ class TDLeafAgent(object):
     def load_session(self, sess):
         self.sess_ = sess
 
-    def get_move(self, sess, env, depth):
+    def get_move(self, env):
+        move, _, _, = self.search_tree(self.sess_, env, 3)
+        return move
+
+    def search_tree(self, sess, env, depth):
         self.ttable = dict()
         node = Node('root', board=env.board, move=env.get_null_move())
         leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.model.value_function(sess))
@@ -168,7 +173,7 @@ class TDLeafAgent(object):
 
     def get_move_function(self, sess, depth):
         def m(env):
-            move, value, node = self.get_move(sess, env, depth)
+            move, value, node = self.search_tree(sess, env, depth)
             return move
         return m
 

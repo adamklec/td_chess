@@ -1,4 +1,7 @@
-class HumanAgent(object):
+from agents.agent_base import AgentBase
+
+
+class HumanAgent(AgentBase):
     def get_move(self, env):
         while True:
             legal_moves = env.get_legal_moves()
