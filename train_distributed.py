@@ -72,15 +72,15 @@ if __name__ == "__main__":
         time.sleep(2)
 
     for task_idx, _ in enumerate(tester_hosts):
-        env = ChessEnv(load_pgn=True)
+        env = ChessEnv()
         # env = TicTacToeEnv()
         p = Process(target=work, args=(env, 'tester', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
 
     for task_idx, _ in enumerate(trainer_hosts):
-        env = ChessEnv(load_pgn=True, random_position=True)
-        # env = TicTacToeEnv(random_position=True)
+        env = ChessEnv()
+        # env = TicTacToeEnv()
         p = Process(target=work, args=(env, 'trainer', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()

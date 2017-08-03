@@ -1,8 +1,6 @@
 from abc import ABCMeta, abstractmethod
-import chess
 
-
-class BoardGameEnvBase(metaclass=ABCMeta):
+class GameEnvBase(metaclass=ABCMeta):
 
     @abstractmethod
     def get_board(self):
@@ -22,7 +20,15 @@ class BoardGameEnvBase(metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
-    def reset(self, board=None):
+    def reset(self):
+        return NotImplemented
+
+    @abstractmethod
+    def set_board(self, board):
+        return NotImplemented
+
+    @abstractmethod
+    def random_position(self):
         return NotImplemented
 
     @abstractmethod
@@ -54,32 +60,3 @@ class BoardGameEnvBase(metaclass=ABCMeta):
     @abstractmethod
     def test(self, get_move_function, test_idx):
         return NotImplemented
-
-
-class BoardBase(metaclass=ABCMeta):
-    @abstractmethod
-    def __init__(self, fen=None):
-        pass
-
-    @property
-    @abstractmethod
-    def turn(self):
-        pass
-
-    @turn.setter
-    def turn(self, value):
-        self.board = value
-
-    @abstractmethod
-    def fen(self):
-        return NotImplemented
-
-    @abstractmethod
-    def copy(self):
-        return NotImplemented
-
-    @abstractmethod
-    def zobrist_hash(self):
-        return NotImplemented
-
-BoardBase.register(chess.Board)

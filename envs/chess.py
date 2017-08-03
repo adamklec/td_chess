@@ -2,25 +2,22 @@ import numpy as np
 import chess
 from chess.pgn import read_game
 from random import choice, randint
-from .board_game_base import BoardGameEnvBase
+from .game_env_base import GameEnvBase
 from os import listdir
 import pandas as pd
 
 
-class ChessEnv(BoardGameEnvBase):
+class ChessEnv(GameEnvBase):
 
-    def __init__(self, board=None, random_position=False, load_pgn=False):
-        self.random_position = random_position
+    def __init__(self, load_pgn=True):
         self.load_pgn = load_pgn
-        self.board = board
+        self.board = chess.Board()
 
         if self.load_pgn:
             pgn = open("./data/millionbase-2.22.pgn")
             self.board_generator = random_board_generator(pgn)
         else:
             self.board_generator = None
-
-        self.reset(board)
 
     def get_board(self):
         return self.board
@@ -31,16 +28,15 @@ class ChessEnv(BoardGameEnvBase):
     def get_move_stack(self):
         return self.board.move_stack
 
-    def reset(self, board=None):
-        if board is None:
-            # skip through a random number of boards to avoid different threads training on the same board.
-            if self.random_position:
-                for _ in range(randint(1, 100)):
-                    self.board = self.board_generator.__next__()
-            else:
-                self.board = chess.Board()
-        else:
-            self.board = board
+    def reset(self):
+        self.board = chess.Board()
+
+    def set_board(self, board):
+        self.board = board
+
+    def random_position(self):
+        for _ in range(randint(1, 100)):
+            self.board = self.board_generator.__next__()
 
     def get_reward(self, board=None):
         if board is None:
@@ -141,7 +137,7 @@ class ChessEnv(BoardGameEnvBase):
         # for fen, c0 in zip(df.fen[:1], df.c0[:1]):
         for fen, c0 in zip(df.fen, df.c0):
             board = chess.Board(fen=fen)
-            self.reset(board=board)
+            self.set_board(board)
             move = get_move_function(self)
             reward = c0.get(board.san(move), 0)
             result += reward

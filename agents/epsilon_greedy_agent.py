@@ -4,7 +4,7 @@ from anytree import Node
 from agents.agent_base import AgentBase
 
 
-class TDLeafAgent(AgentBase):
+class EpsilonGreedyAgent(AgentBase):
     def __init__(self,
                  name,
                  model,
@@ -19,7 +19,6 @@ class TDLeafAgent(AgentBase):
         self.env = env
 
         self.verbose = verbose
-        self.ttable = dict()
 
         self.test_score_ = tf.placeholder(tf.float32, name='test_score_')
         self.test_results = tf.Variable(tf.zeros((14,)), name="test_results", trainable=False)
@@ -47,16 +46,36 @@ class TDLeafAgent(AgentBase):
         for tvar in self.model.trainable_variables:
             tf.summary.histogram(tvar.op.name, tvar)
 
-        for grad_accum in self.grad_accums:
-            tf.summary.histogram(grad_accum.op.name, grad_accum)
-
         self.trainer = tf.train.AdamOptimizer()
 
-        self.lamda = .7
+        lamda = tf.constant(0.7, name='lamba')
 
         self.grad_vars = self.trainer.compute_gradients(self.model.value, self.model.trainable_variables)
         self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.model.trainable_variables]
         self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s, self.model.trainable_variables), name='apply_grads')
+
+        traces = []
+        update_traces = []
+        reset_traces = []
+        with tf.variable_scope('update_traces'):
+            for grad, var in self.grad_vars:
+                if grad is None:
+                    grad = tf.zeros_like(var)
+                with tf.variable_scope('trace'):
+                    trace = tf.Variable(tf.zeros(grad.get_shape()), trainable=False, name='trace')
+                    traces.append(trace)
+
+                    update_trace_op = trace.assign((lamda * trace) + grad)
+                    update_traces.append(update_trace_op)
+
+                    reset_trace_op = trace.assign(tf.zeros_like(trace))
+                    reset_traces.append(reset_trace_op)
+
+        self.update_traces_op = tf.group(*update_traces)
+        self.reset_traces_op = tf.group(*reset_traces)
+
+        for grad_accum in self.grad_accums:
+            tf.summary.histogram(grad_accum.op.name, grad_accum)
 
     def train(self, sess, depth=1):
         global_episode_count = sess.run(self.global_episode_count)
@@ -156,166 +175,11 @@ class TDLeafAgent(AgentBase):
         move, _, _, = self.search_tree(self.sess_, env, 3)
         return move
 
-    def search_tree(self, sess, env, depth):
-        self.ttable = dict()
-        node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.model.value_function(sess))
-
-        if len(leaf_node.path) > 1:
-            move = leaf_node.path[1].move
-        else:
-            return env.get_null_move()
-
-        if node.board.turn:
-            return move, leaf_value, leaf_node
-        else:
-            return move, -leaf_value, leaf_node
-
     def get_move_function(self, sess, depth):
         def m(env):
             move, value, node = self.search_tree(sess, env, depth)
             return move
         return m
-
-    def negamax(self, node, depth, alpha, beta, value_function):
-        alpha_orig = alpha
-
-        hash_key = node.board.zobrist_hash()
-        tt_row = self.ttable.get(hash_key)
-        if tt_row is not None:  # and tt_row['depth'] >= depth:
-            if tt_row['flag'] == 'EXACT':
-                return tt_row['value'], node
-            elif tt_row['flag'] == 'LOWERBOUND':
-                alpha = max(alpha, tt_row['value'])
-            elif tt_row['flag'] == 'UPPERBOUND':
-                beta = min(beta, tt_row['value'])
-            if alpha >= beta:
-                return tt_row['value'], node
-
-        if node.board.is_game_over():
-            value = node.board.result()
-            if isinstance(value, str):
-                value = convert_string_result(value)
-
-            if node.board.turn:
-                return value, node
-            else:
-                return -value, node
-
-        # elif depth <= 0 and self.env.is_quiet(node.board):
-        elif depth <= 0:
-            fv = self.env.make_feature_vector(node.board)
-            value = value_function(fv)
-            if node.board.turn:
-                return value, node
-            else:
-                return -value, node
-
-        children = []
-        for move in node.board.legal_moves:
-            child_board = node.board.copy()
-            child_board.push(move)
-            child = Node(str(move), parent=node, board=child_board, move=move)
-            children.append(child)
-
-        children = sorted(children, key=lambda child: self.env.move_order_key(child.board, self.ttable))
-
-        v = -100000
-        n = node
-        for child in children:
-            vv, nn = self.negamax(child, depth - 1, -beta, -alpha, value_function)
-            vv = -vv
-            if vv > v:
-                v = vv
-                n = nn
-            alpha = max(alpha, vv)
-            if alpha >= beta:
-                break
-
-        if tt_row is None:
-            tt_row = dict()
-        tt_row['value'] = v
-        if v <= alpha_orig:
-            tt_row['flag'] = 'UPPERBOUND'
-        elif v >= beta:
-            tt_row['flag'] = 'LOWERBOUND'
-        else:
-            tt_row['flag'] = 'EXACT'
-
-        tt_row['depth'] = depth
-        self.ttable[hash_key] = tt_row
-        return v, n
-
-
-    def negascout(self, node, depth, alpha, beta, value_function):
-        alpha_orig = alpha
-
-        # hash_key = node.board.zobrist_hash()
-        # tt_row = self.ttable.get(hash_key)
-        # if tt_row is not None and tt_row['depth'] >= depth:
-        #     if tt_row['flag'] == 'EXACT':
-        #         return tt_row['value'], node
-        #     elif tt_row['flag'] == 'LOWERBOUND':
-        #         print('found LOWERBOUND')
-        #         alpha = max(alpha, tt_row['value'])
-        #     elif tt_row['flag'] == 'UPPERBOUND':
-        #         print('found UPPERBOUND')
-        #         beta = min(beta, tt_row['value'])
-        #     if alpha >= beta:
-        #         print('alpha:', alpha, 'beta:', beta)
-        #         print(tt_row['value'], node)
-        #         return tt_row['value'], node
-
-        # if (depth <= 0 and self.env.is_quiet(node.board)) or node.board.is_game_over():
-        if depth <= 0 or node.board.is_game_over():
-            fv = self.env.make_feature_vector(node.board)
-            value = value_function(fv)[0, 0]
-            if node.board.turn:
-                return value, node
-            else:
-                return -value, node
-
-        children = []
-        for move in node.board.legal_moves:
-            child_board = node.board.copy()
-            child_board.push(move)
-            child = Node(str(move), parent=node, board=child_board, move=move)
-            children.append(child)
-
-        children = sorted(children, key=lambda child: self.env.move_order_key(child.board, self.ttable))
-
-        n = node
-        for idx, child in enumerate(children):
-            if idx == 0:
-                score, nn = self.negascout(child, depth - 1, -beta, -alpha, value_function)
-                score = -score
-            else:
-                score, nn = self.negascout(child, depth - 1, -alpha - 1, -alpha, value_function)
-                score = -score
-                if alpha < score < beta:
-                    score, nn = self.negascout(child, depth - 1, -beta, -score, value_function)
-                    score = -score
-            if score > alpha:
-                alpha = score
-                n = nn
-            if alpha >= beta:
-                break
-
-        # if tt_row is None:
-        #     tt_row = dict()
-        # tt_row['value'] = score
-        # if score <= alpha_orig:
-        #     tt_row['flag'] = 'UPPERBOUND'
-        # elif score >= beta:
-        #     tt_row['flag'] = 'LOWERBOUND'
-        # else:
-        #     tt_row['flag'] = 'EXACT'
-        #
-        # tt_row['depth'] = depth
-        # self.ttable[hash_key] = tt_row
-
-        return alpha, n
-
 
 def convert_string_result(string):
     if string == '1-0':

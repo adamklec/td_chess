@@ -1,27 +1,32 @@
 import numpy as np
-from .board_game_base import BoardGameEnvBase, BoardBase
+from .game_env_base import GameEnvBase
+from .board_base import BoardBase
 from agents.random_agent import RandomAgent
 from collections import Counter
 from copy import deepcopy
 from random import choice, random
 
 
-class TicTacToeEnv(BoardGameEnvBase):
-    def __init__(self, random_position=False):
+class TicTacToeEnv(GameEnvBase):
+    def __init__(self):
         self.board = TicTacToeBoard()
-        self.random_position = random_position
 
-    def reset(self, board=None):
-        if board is None:
-            self.board = TicTacToeBoard()
-            if self.random_position:
-                if random() < .5:
-                    for _ in range(2):
-                        legal_moves = self.get_legal_moves()
-                        move = choice(legal_moves)
-                        self.make_move(move)
-        else:
-            self.board = board
+    def reset(self):
+        self.board = TicTacToeBoard()
+
+    def set_board(self, board):
+        self.board = board
+
+    def random_position(self):
+        self.reset()
+        if random() > .5:
+            legal_moves = self.get_legal_moves()
+            move = choice(legal_moves)
+            self.make_move(move)
+            if random() > .75:
+                legal_moves = self.get_legal_moves()
+                move = choice(legal_moves)
+                self.make_move(move)
 
     def get_board(self):
         return self.board
