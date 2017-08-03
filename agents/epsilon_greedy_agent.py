@@ -48,31 +48,9 @@ class EpsilonGreedyAgent(AgentBase):
 
         self.trainer = tf.train.AdamOptimizer()
 
-        lamda = tf.constant(0.7, name='lamba')
-
         self.grad_vars = self.trainer.compute_gradients(self.model.value, self.model.trainable_variables)
         self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.model.trainable_variables]
         self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s, self.model.trainable_variables), name='apply_grads')
-
-        traces = []
-        update_traces = []
-        reset_traces = []
-        with tf.variable_scope('update_traces'):
-            for grad, var in self.grad_vars:
-                if grad is None:
-                    grad = tf.zeros_like(var)
-                with tf.variable_scope('trace'):
-                    trace = tf.Variable(tf.zeros(grad.get_shape()), trainable=False, name='trace')
-                    traces.append(trace)
-
-                    update_trace_op = trace.assign((lamda * trace) + grad)
-                    update_traces.append(update_trace_op)
-
-                    reset_trace_op = trace.assign(tf.zeros_like(trace))
-                    reset_traces.append(reset_trace_op)
-
-        self.update_traces_op = tf.group(*update_traces)
-        self.reset_traces_op = tf.group(*reset_traces)
 
         for grad_accum in self.grad_accums:
             tf.summary.histogram(grad_accum.op.name, grad_accum)
