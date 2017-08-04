@@ -1,5 +1,5 @@
 from abc import ABCMeta, abstractmethod
-from chess import Board
+import chess
 
 
 class BoardBase(metaclass=ABCMeta):
@@ -28,4 +28,4 @@ class BoardBase(metaclass=ABCMeta):
     def zobrist_hash(self):
         return NotImplemented
 
-BoardBase.register(Board)
+BoardBase.register(chess.Board)

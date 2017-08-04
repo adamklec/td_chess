@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from anytree import Node
 from agents.agent_base import AgentBase
-
+import random
 
 class EpsilonGreedyAgent(AgentBase):
     def __init__(self,
@@ -17,7 +17,7 @@ class EpsilonGreedyAgent(AgentBase):
             self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
 
         self.env = env
-
+        self.sess = None
         self.verbose = verbose
 
         self.test_score_ = tf.placeholder(tf.float32, name='test_score_')
@@ -34,80 +34,70 @@ class EpsilonGreedyAgent(AgentBase):
 
         self.model = model
 
-        with tf.variable_scope('grad_accums'):
-            self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False) for tvar in self.model.trainable_variables]
-            self.grad_accum_s = [tf.placeholder(tf.float32, tvar.get_shape()) for tvar in self.model.trainable_variables]
-
-            self.reset_grad_accums = [tf.assign(grad_accum, tf.zeros_like(tvar))
-                                      for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
-            self.update_grad_accums = [tf.assign_add(grad_accum, grad_accum_)
-                                      for grad_accum, grad_accum_ in zip(self.grad_accums, self.grad_accum_s)]
-
-        for tvar in self.model.trainable_variables:
+        tvars = self.model.trainable_variables
+        for tvar in tvars:
             tf.summary.histogram(tvar.op.name, tvar)
 
-        self.trainer = tf.train.AdamOptimizer()
+        # grads = tf.gradients([self.model.value], tvars)
+        trainer = tf.train.AdamOptimizer()
+        grad_vars = trainer.compute_gradients(self.model.value, tvars)
+        grads, _ = zip(*grad_vars)
+        self.next_value_ = tf.placeholder(tf.float32, name='next_value_')
+        delta = self.next_value_ - self.model.value
 
-        self.grad_vars = self.trainer.compute_gradients(self.model.value, self.model.trainable_variables)
-        self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.model.trainable_variables]
-        self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s, self.model.trainable_variables), name='apply_grads')
+        traces = []
+        update_traces = []
+        apply_trace_ops = []
+        reset_trace_ops = []
 
-        for grad_accum in self.grad_accums:
-            tf.summary.histogram(grad_accum.op.name, grad_accum)
+        lamda = tf.constant(0.7, name='lamba')
+        lr = tf.constant(0.01, name='lr')
 
-    def train(self, sess, depth=1):
-        global_episode_count = sess.run(self.global_episode_count)
-        sess.run(self.increment_global_episode_count_op)
-        if global_episode_count % 10 == 0:
-            run_update = True
-        else:
-            run_update = False
+        with tf.variable_scope('traces'):
+            for grad, tvar in zip(grads, tvars):
 
-        lamda = 0.7
-        self.env.random_position()
+                trace = tf.Variable(tf.zeros(tvar.get_shape()), trainable=False, name='trace')
+                traces.append(trace)
+                tf.summary.histogram(tvar.name + '_trace', trace)
+
+                update_trace = trace.assign((lamda * trace) + grad)
+                update_traces.append(update_trace)
+
+                with tf.control_dependencies([update_trace]):
+                    apply_trace_op = tf.assign_add(tvar, lr * delta * trace)
+                apply_trace_ops.append(apply_trace_op)
+
+                reset_trace_op = trace.assign(tf.zeros_like(trace))
+                reset_trace_ops.append(reset_trace_op)
+
+            self.apply_traces_op = tf.group(*apply_trace_ops)
+            self.reset_traces_op = tf.group(*reset_trace_ops)
+
+        with tf.control_dependencies(update_traces):
+            self.apply_grads_op = trainer.apply_gradients([(-lr * delta * trace, tvar) for trace, tvar in zip(traces, tvars)])
+
+    def train(self, epsilon=.05):
+        global_episode_count = self.sess.run(self.global_episode_count)
+        self.sess.run(self.increment_global_episode_count_op)
+
         starting_position_move_str = ','.join([str(m) for m in self.env.get_move_stack()])
         selected_moves = []
 
-        value_seq = []
-        grads_seq = []
-        turn_count = 0
+        self.env.reset()
+        self.sess.run(self.reset_traces_op)
 
-        while self.env.get_reward() is None and turn_count < 10:
-            move, leaf_value, leaf_node = self.search_tree(sess, self.env, depth)
-            selected_moves.append(move)
-
-            feature_vector = self.env.make_feature_vector(leaf_node.board)
-            grad_vars = sess.run(self.grad_vars,
-                                 feed_dict={self.model.feature_vector_: feature_vector})
-            grads, _ = zip(*grad_vars)
-
-            value_seq.append(leaf_value)
-            grads_seq.append(grads)
-
+        while self.env.get_reward() is None:
+            if random.random() < epsilon:
+                move = random.choice(list(self.env.get_legal_moves()))
+                self.sess.run(self.reset_traces_op)
+            else:
+                move, next_value = self.get_move_and_value(self.env)
+                feature_vector = self.env.make_feature_vector(self.env.board)
+                # self.sess.run(self.apply_traces_op, feed_dict={self.model.feature_vector_: feature_vector,
+                #                                                self.next_value_: next_value})
+                self.sess.run(self.apply_grads_op, feed_dict={self.model.feature_vector_: feature_vector,
+                                                              self.next_value_: next_value})
             self.env.make_move(move)
-            turn_count += 1
-
-        value_seq.append(value_seq[-1])  # repeating the last value so that delta==0 for the last time step
-
-        deltas = [value_seq[i+1] - value_seq[i] for i in range(len(value_seq) - 1)]
-        grad_accums = [np.zeros_like(grad) for grad in grads_seq[0]]
-
-        for t in range(len(grads_seq)):
-            grads = grads_seq[t]
-            inner = sum([lamda ** (j - t) * deltas[j] for j in range(t, len(grads_seq))])
-
-            for i in range(len(grads)):
-                grad_accums[i] -= grads[i] * inner  # subtract for gradient ascent
-
-        sess.run(self.update_grad_accums, feed_dict={grad_accum_: grad_accum
-                                                     for grad_accum_, grad_accum in zip(self.grad_accum_s, grad_accums)})
-
-        if run_update:
-            print('global_episode_count:', global_episode_count)
-
-            sess.run(self.apply_grads, feed_dict={grad_: grad_accum
-                                                  for grad_, grad_accum in zip(self.grad_s, grad_accums)})
-            sess.run(self.reset_grad_accums)
 
         if self.verbose:
             print("global episode:", global_episode_count,
@@ -119,45 +109,74 @@ class EpsilonGreedyAgent(AgentBase):
         with open("data/move_log.txt", "a") as move_log:
             move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
 
-    def test(self, sess, test_idxs, depth=1):
+    def test(self, test_idxs):
 
         from envs.chess import ChessEnv
         from envs.tic_tac_toe import TicTacToeEnv
 
         if isinstance(self.env, ChessEnv):
             for test_idx in test_idxs:
-                result = self.env.test(self.get_move_function(sess, depth), test_idx)
-                sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
+                result = self.env.test(self.get_move, test_idx)
+                self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
                                                               self.test_result_: result})
-                global_episode_count = sess.run(self.global_episode_count)
+                global_episode_count = self.sess.run(self.global_episode_count)
                 print("EPISODE", global_episode_count,
                       "TEST_IDX", test_idx,
                       "TEST TOTAL:", result)
-                print(sess.run(self.test_results))
+                print(self.sess.run(self.test_results))
 
         elif isinstance(self.env, TicTacToeEnv):
-            result = self.env.test(self.get_move_function(sess, depth), None)
+            result = self.env.test(self.get_move, None)
             for i, r in enumerate(result):
-                sess.run(self.update_test_results, feed_dict={self.test_idx_: i,
+                self.sess.run(self.update_test_results, feed_dict={self.test_idx_: i,
                                                               self.test_result_: r})
-            global_episode_count = sess.run(self.global_episode_count)
+            global_episode_count = self.sess.run(self.global_episode_count)
             print("EPISODE", global_episode_count)
-            test_results = sess.run(self.test_results)
+            test_results = self.sess.run(self.test_results)
             print('X:', test_results[:3])
             print('O:', test_results[3:6])
 
     def load_session(self, sess):
-        self.sess_ = sess
+        self.sess = sess
+
+    def calculate_candidate_board_values(self, env):
+        legal_moves = env.get_legal_moves()
+        candidate_boards = []
+        for move in legal_moves:
+            candidate_board = self.env.board.copy()
+            candidate_board.push(move)
+            candidate_boards.append(candidate_board)
+
+        feature_vectors = np.vstack([self.env.make_feature_vector(board) for board in candidate_boards])
+        values = self.sess.run(self.model.value, feed_dict={self.model.feature_vector_: feature_vectors})
+        for idx, board in enumerate(candidate_boards):
+            result = board.result()
+            if isinstance(result, str):
+                result = convert_string_result(result)
+            if result is not None:
+                values[idx] = result
+        return values
 
     def get_move(self, env):
-        move, _, _, = self.search_tree(self.sess_, env, 3)
+        values = self.calculate_candidate_board_values(env)
+        if env.board.turn:
+            move_idx = np.argmax(values)
+        else:
+            move_idx = np.argmin(values)
+        move = env.get_legal_moves()[move_idx]
         return move
 
-    def get_move_function(self, sess, depth):
-        def m(env):
-            move, value, node = self.search_tree(sess, env, depth)
-            return move
-        return m
+    def get_move_and_value(self, env):
+        values = self.calculate_candidate_board_values(env)
+        if env.board.turn:
+            value = np.max(values)
+            move_idx = np.argmax(values)
+        else:
+            value = np.min(values)
+            move_idx = np.argmin(values)
+        move = env.get_legal_moves()[move_idx]
+        return move, value
+
 
 def convert_string_result(string):
     if string == '1-0':

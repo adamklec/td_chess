@@ -1,17 +1,25 @@
 import tensorflow as tf
-from agents.td_leaf_agent import TDLeafAgent
-from envs.chess import ChessEnv
+from agents.epsilon_greedy_agent import EpsilonGreedyAgent
 from envs.tic_tac_toe import TicTacToeEnv
 from value_model import ValueModel
+import time
+
 
 def main():
-    with tf.Session() as sess:
-        env = TicTacToeEnv()
-        network = ValueModel(env.get_feature_vector_size())
-        agent = TDLeafAgent('agent_0', network, env, verbose=True)
-        sess.run(tf.global_variables_initializer())
-        for i in range(200):
-            agent.train(sess, depth=3)
+    env = TicTacToeEnv()
+    network = ValueModel(env.get_feature_vector_size())
+    agent = EpsilonGreedyAgent('agent_0', network, env)
+    summary_op = tf.summary.merge_all()
+    log_dir = "./log/" + str(int(time.time()))
+
+    with tf.train.MonitoredTrainingSession(checkpoint_dir=log_dir,
+                                           scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
+        agent.load_session(sess)
+        for i in range(10000000):
+            if i % 1000 == 0:
+                agent.test(None)
+            agent.train()
+
 
 if __name__ == "__main__":
     main()
