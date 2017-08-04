@@ -91,7 +91,7 @@ class EpsilonGreedyAgent(AgentBase):
                 move = random.choice(list(self.env.get_legal_moves()))
                 self.sess.run(self.reset_traces_op)
             else:
-                move, next_value = self.get_move_and_value(self.env)
+                move, next_value = self.get_move(self.env, return_value=True)
                 feature_vector = self.env.make_feature_vector(self.env.board)
                 # self.sess.run(self.apply_traces_op, feed_dict={self.model.feature_vector_: feature_vector,
                 #                                                self.next_value_: next_value})
@@ -157,16 +157,7 @@ class EpsilonGreedyAgent(AgentBase):
                 values[idx] = result
         return values
 
-    def get_move(self, env):
-        values = self.calculate_candidate_board_values(env)
-        if env.board.turn:
-            move_idx = np.argmax(values)
-        else:
-            move_idx = np.argmin(values)
-        move = env.get_legal_moves()[move_idx]
-        return move
-
-    def get_move_and_value(self, env):
+    def get_move(self, env, return_value=False):
         values = self.calculate_candidate_board_values(env)
         if env.board.turn:
             value = np.max(values)
@@ -175,7 +166,10 @@ class EpsilonGreedyAgent(AgentBase):
             value = np.min(values)
             move_idx = np.argmin(values)
         move = env.get_legal_moves()[move_idx]
-        return move, value
+        if return_value:
+            return move, value
+        else:
+            return move
 
 
 def convert_string_result(string):
