@@ -17,6 +17,7 @@ class TDLeafAgent(AgentBase):
             self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
 
         self.env = env
+        self.sess = None
 
         self.verbose = verbose
         self.ttable = dict()
@@ -58,9 +59,9 @@ class TDLeafAgent(AgentBase):
         self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.model.trainable_variables]
         self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s, self.model.trainable_variables), name='apply_grads')
 
-    def train(self, sess, depth=1):
-        global_episode_count = sess.run(self.global_episode_count)
-        sess.run(self.increment_global_episode_count_op)
+    def train(self, depth=1):
+        global_episode_count = self.sess.run(self.global_episode_count)
+        self.sess.run(self.increment_global_episode_count_op)
         if global_episode_count % 10 == 0:
             run_update = True
         else:
@@ -68,49 +69,49 @@ class TDLeafAgent(AgentBase):
 
         lamda = 0.7
         self.env.random_position()
+        self.ttable = dict()
         starting_position_move_str = ','.join([str(m) for m in self.env.get_move_stack()])
         selected_moves = []
 
         value_seq = []
         grads_seq = []
+
         turn_count = 0
-
         while self.env.get_reward() is None and turn_count < 10:
-            move, leaf_value, leaf_node = self.search_tree(sess, self.env, depth)
-            selected_moves.append(move)
+            feature_vector = self.env.make_feature_vector(self.env.board)
+            grad_vars, value = self.sess.run([self.grad_vars, self.model.value],
+                                             feed_dict={self.model.feature_vector_: feature_vector})
 
-            feature_vector = self.env.make_feature_vector(leaf_node.board)
-            grad_vars = sess.run(self.grad_vars,
-                                 feed_dict={self.model.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
 
-            value_seq.append(leaf_value)
+            value_seq.append(value)
             grads_seq.append(grads)
 
+            move = self.get_move(self.env, depth=depth)
+            selected_moves.append(move)
             self.env.make_move(move)
-            turn_count += 1
 
-        value_seq.append(value_seq[-1])  # repeating the last value so that delta==0 for the last time step
+            turn_count += 1
 
         deltas = [value_seq[i+1] - value_seq[i] for i in range(len(value_seq) - 1)]
         grad_accums = [np.zeros_like(grad) for grad in grads_seq[0]]
 
-        for t in range(len(grads_seq)):
+        for t in range(len(deltas)):
             grads = grads_seq[t]
-            inner = sum([lamda ** (j - t) * deltas[j] for j in range(t, len(grads_seq))])
+            inner = sum([lamda ** (j - t) * deltas[j] for j in range(t, len(deltas))])
 
             for i in range(len(grads)):
                 grad_accums[i] -= grads[i] * inner  # subtract for gradient ascent
 
-        sess.run(self.update_grad_accums, feed_dict={grad_accum_: grad_accum
-                                                     for grad_accum_, grad_accum in zip(self.grad_accum_s, grad_accums)})
+        self.sess.run(self.update_grad_accums, feed_dict={grad_accum_: grad_accum
+                                                          for grad_accum_, grad_accum in zip(self.grad_accum_s, grad_accums)})
 
         if run_update:
             print('global_episode_count:', global_episode_count)
 
-            sess.run(self.apply_grads, feed_dict={grad_: grad_accum
+            self.sess.run(self.apply_grads, feed_dict={grad_: grad_accum
                                                   for grad_, grad_accum in zip(self.grad_s, grad_accums)})
-            sess.run(self.reset_grad_accums)
+            self.sess.run(self.reset_grad_accums)
 
         if self.verbose:
             print("global episode:", global_episode_count,
@@ -122,58 +123,57 @@ class TDLeafAgent(AgentBase):
         with open("data/move_log.txt", "a") as move_log:
             move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
 
-    def test(self, sess, test_idxs, depth=1):
+    def test(self, test_idxs, depth=1):
 
         from envs.chess import ChessEnv
         from envs.tic_tac_toe import TicTacToeEnv
 
         if isinstance(self.env, ChessEnv):
             for test_idx in test_idxs:
-                result = self.env.test(self.get_move_function(sess, depth), test_idx)
-                sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
-                                                              self.test_result_: result})
-                global_episode_count = sess.run(self.global_episode_count)
+                result = self.env.test(self.get_move_function(depth=depth), test_idx)
+                self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
+                                                                   self.test_result_: result})
+                global_episode_count = self.sess.run(self.global_episode_count)
                 print("EPISODE", global_episode_count,
                       "TEST_IDX", test_idx,
                       "TEST TOTAL:", result)
-                print(sess.run(self.test_results))
+                print(self.sess.run(self.test_results))
 
         elif isinstance(self.env, TicTacToeEnv):
-            result = self.env.test(self.get_move_function(sess, depth), None)
+            result = self.env.random_agent_test(self.get_move_function(depth))
             for i, r in enumerate(result):
-                sess.run(self.update_test_results, feed_dict={self.test_idx_: i,
-                                                              self.test_result_: r})
-            global_episode_count = sess.run(self.global_episode_count)
+                self.sess.run(self.update_test_results, feed_dict={self.test_idx_: i,
+                                                                   self.test_result_: r})
+            global_episode_count = self.sess.run(self.global_episode_count)
             print("EPISODE", global_episode_count)
-            test_results = sess.run(self.test_results)
+            test_results = self.sess.run(self.test_results)
             print('X:', test_results[:3])
             print('O:', test_results[3:6])
 
     def load_session(self, sess):
-        self.sess_ = sess
+        self.sess = sess
 
-    def get_move(self, env):
-        move, _, _, = self.search_tree(self.sess_, env, 3)
-        return move
-
-    def search_tree(self, sess, env, depth):
+    def get_move(self, env, depth=3, return_value_node=False):
         self.ttable = dict()
         node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.model.value_function(sess))
+        leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.model.value_function(self.sess))
 
         if len(leaf_node.path) > 1:
             move = leaf_node.path[1].move
         else:
             return env.get_null_move()
 
-        if node.board.turn:
+        if not node.board.turn:
+            leaf_value = -leaf_value
+
+        if return_value_node:
             return move, leaf_value, leaf_node
         else:
-            return move, -leaf_value, leaf_node
+            return move
 
-    def get_move_function(self, sess, depth):
+    def get_move_function(self, depth):
         def m(env):
-            move, value, node = self.search_tree(sess, env, depth)
+            move = self.get_move(env, depth)
             return move
         return m
 

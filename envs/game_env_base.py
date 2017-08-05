@@ -1,10 +1,17 @@
 from abc import ABCMeta, abstractmethod
+from collections import Counter
+from agents.random_agent import RandomAgent
+
 
 class GameEnvBase(metaclass=ABCMeta):
 
-    @abstractmethod
-    def get_board(self):
-        return NotImplemented
+    # def getboard(self):
+    #     return self.__board
+    #
+    # def setboard(self, value):
+    #     self.__board = value
+    #
+    # board = property(getboard, setboard)
 
     @abstractmethod
     def get_null_move(self):
@@ -21,10 +28,6 @@ class GameEnvBase(metaclass=ABCMeta):
 
     @abstractmethod
     def reset(self):
-        return NotImplemented
-
-    @abstractmethod
-    def set_board(self, board):
         return NotImplemented
 
     @abstractmethod
@@ -60,3 +63,46 @@ class GameEnvBase(metaclass=ABCMeta):
     @abstractmethod
     def test(self, get_move_function, test_idx):
         return NotImplemented
+
+    def play_random(self, get_move_function, side):
+        self.reset()
+        random_agent = RandomAgent()
+        if side:
+            move_functions = [random_agent.get_move, get_move_function]  # True == 1 == 'X'
+        else:
+            move_functions = [get_move_function, random_agent.get_move]
+
+        while self.get_reward() is None:
+            move_function = move_functions[int(self.board.turn)]
+            move = move_function(self)
+            self.make_move(move)
+
+        reward = self.get_reward()
+
+        return reward
+
+    def play_self(self, get_move_function):
+        self.reset()
+        while self.get_reward() is None:
+            move = get_move_function(self)
+            self.make_move(move)
+
+        reward = self.get_reward()
+
+        return reward
+
+    def random_agent_test(self, get_move_function):
+        x_counter = Counter()
+        for _ in range(100):
+            self.reset()
+            reward = self.play_random(get_move_function, True)
+            x_counter.update([reward])
+
+        o_counter = Counter()
+        for _ in range(100):
+            self.reset()
+            reward = self.play_random(get_move_function, False)
+            o_counter.update([reward])
+
+        return [x_counter[1], x_counter[0], x_counter[-1],
+                o_counter[1], o_counter[0], o_counter[-1]]

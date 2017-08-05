@@ -19,9 +19,6 @@ class ChessEnv(GameEnvBase):
         else:
             self.board_generator = None
 
-    def get_board(self):
-        return self.board
-
     def get_null_move(self):
         return chess.Move.null()
 
@@ -137,7 +134,7 @@ class ChessEnv(GameEnvBase):
         # for fen, c0 in zip(df.fen[:1], df.c0[:1]):
         for fen, c0 in zip(df.fen, df.c0):
             board = chess.Board(fen=fen)
-            self.set_board(board)
+            self.board = board
             move = get_move_function(self)
             reward = c0.get(board.san(move), 0)
             result += reward

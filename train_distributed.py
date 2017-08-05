@@ -47,13 +47,15 @@ def work(env, job_name, task_index, cluster, log_dir):
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=10,
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
+            agent.load_session(mon_sess)
+
             if job_name == "trainer":
                 while not mon_sess.should_stop():
-                    agent.train(mon_sess, depth=1)
+                    agent.train(depth=1)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    agent.test(mon_sess, test_idxs=list(range(14)), depth=1)  # TODO: distribute tests among testers
+                    agent.test(test_idxs=list(range(14)), depth=1)  # TODO: distribute tests among testers
 
 
 if __name__ == "__main__":
@@ -69,7 +71,6 @@ if __name__ == "__main__":
         p = Process(target=work, args=(None, 'ps', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
-        time.sleep(2)
 
     for task_idx, _ in enumerate(tester_hosts):
         env = ChessEnv()

@@ -14,9 +14,6 @@ class TicTacToeEnv(GameEnvBase):
     def reset(self):
         self.board = TicTacToeBoard()
 
-    def set_board(self, board):
-        self.board = board
-
     def random_position(self):
         self.reset()
         if random() > .5:
@@ -27,9 +24,6 @@ class TicTacToeEnv(GameEnvBase):
                 legal_moves = self.get_legal_moves()
                 move = choice(legal_moves)
                 self.make_move(move)
-
-    def get_board(self):
-        return self.board
 
     def get_null_move(self):
         return None
@@ -100,47 +94,8 @@ class TicTacToeEnv(GameEnvBase):
                 print("draw")
         return self.get_reward()
 
-    def play_random(self, get_move_function, side):
-        self.reset()
-        random_agent = RandomAgent()
-        if side:
-            move_functions = [random_agent.get_move, get_move_function]  # True == 1 == 'X'
-        else:
-            move_functions = [get_move_function, random_agent.get_move]
-
-        while self.get_reward() is None:
-            move_function = move_functions[int(self.board.turn)]
-            move = move_function(self)
-            self.make_move(move)
-
-        reward = self.get_reward()
-
-        return reward
-
-    def play_self(self, get_move_function):
-        self.reset()
-        while self.get_reward() is None:
-            move = get_move_function(self)
-            self.make_move(move)
-
-        reward = self.get_reward()
-
-        return reward
-
     def test(self, get_move_function, test_idx):
-        x_counter = Counter()
-        for _ in range(100):
-            self.reset()
-            reward = self.play_random(get_move_function, True)
-            x_counter.update([reward])
-
-        o_counter = Counter()
-        for _ in range(100):
-            self.reset()
-            reward = self.play_random(get_move_function, False)
-            o_counter.update([reward])
-
-        return [x_counter[1], x_counter[0], x_counter[-1], o_counter[1], o_counter[0], o_counter[-1]]
+        return NotImplementedError
 
     @staticmethod
     def get_feature_vector_size():
