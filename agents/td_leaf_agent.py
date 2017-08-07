@@ -11,30 +11,9 @@ class TDLeafAgent(AgentBase):
                  env,
                  verbose=False):
 
-        self.name = name
-        self.global_episode_count = tf.contrib.framework.get_or_create_global_step()
-        with tf.variable_scope('episode_count'):
-            self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
+        super().__init__(name, model, env, verbose)
 
-        self.env = env
-        self.sess = None
-
-        self.verbose = verbose
         self.ttable = dict()
-
-        self.test_score_ = tf.placeholder(tf.float32, name='test_score_')
-        self.test_results = tf.Variable(tf.zeros((14,)), name="test_results", trainable=False)
-        self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
-        self.test_result_ = tf.placeholder(tf.float32, name='test_result_')
-
-        self.update_test_results = tf.scatter_update(self.test_results, self.test_idx_, self.test_result_)
-        test_total = tf.reduce_sum(self.test_results)
-        tf.summary.scalar("test_total", test_total)
-
-        for i in range(14):
-            tf.summary.scalar("test_" + str(i), tf.reduce_sum(tf.slice(self.test_results, [i], [1])))
-
-        self.model = model
 
         with tf.variable_scope('grad_accums'):
             self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False) for tvar in self.model.trainable_variables]
@@ -43,21 +22,21 @@ class TDLeafAgent(AgentBase):
             self.reset_grad_accums = [tf.assign(grad_accum, tf.zeros_like(tvar))
                                       for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
             self.update_grad_accums = [tf.assign_add(grad_accum, grad_accum_)
-                                      for grad_accum, grad_accum_ in zip(self.grad_accums, self.grad_accum_s)]
+                                       for grad_accum, grad_accum_ in zip(self.grad_accums, self.grad_accum_s)]
 
-        for tvar in self.model.trainable_variables:
-            tf.summary.histogram(tvar.op.name, tvar)
-
-        for grad_accum in self.grad_accums:
-            tf.summary.histogram(grad_accum.op.name, grad_accum)
+            for grad_accum in self.grad_accums:
+                tf.summary.histogram(grad_accum.op.name, grad_accum)
 
         self.trainer = tf.train.AdamOptimizer()
 
         self.lamda = .7
 
         self.grad_vars = self.trainer.compute_gradients(self.model.value, self.model.trainable_variables)
-        self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER') for var in self.model.trainable_variables]
-        self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s, self.model.trainable_variables), name='apply_grads')
+        self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER')
+                       for var in self.model.trainable_variables]
+        self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s,
+                                                            self.model.trainable_variables),
+                                                        name='apply_grads')
 
     def train(self, depth=1):
         global_episode_count = self.sess.run(self.global_episode_count)
@@ -104,7 +83,8 @@ class TDLeafAgent(AgentBase):
                 grad_accums[i] -= grads[i] * inner  # subtract for gradient ascent
 
         self.sess.run(self.update_grad_accums, feed_dict={grad_accum_: grad_accum
-                                                          for grad_accum_, grad_accum in zip(self.grad_accum_s, grad_accums)})
+                                                          for grad_accum_, grad_accum in zip(self.grad_accum_s,
+                                                                                             grad_accums)})
 
         if run_update:
             print('global_episode_count:', global_episode_count)
@@ -122,36 +102,6 @@ class TDLeafAgent(AgentBase):
 
         with open("data/move_log.txt", "a") as move_log:
             move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
-
-    def test(self, test_idxs, depth=1):
-
-        from envs.chess import ChessEnv
-        from envs.tic_tac_toe import TicTacToeEnv
-
-        if isinstance(self.env, ChessEnv):
-            for test_idx in test_idxs:
-                result = self.env.test(self.get_move_function(depth=depth), test_idx)
-                self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
-                                                                   self.test_result_: result})
-                global_episode_count = self.sess.run(self.global_episode_count)
-                print("EPISODE", global_episode_count,
-                      "TEST_IDX", test_idx,
-                      "TEST TOTAL:", result)
-                print(self.sess.run(self.test_results))
-
-        elif isinstance(self.env, TicTacToeEnv):
-            result = self.env.random_agent_test(self.get_move_function(depth))
-            for i, r in enumerate(result):
-                self.sess.run(self.update_test_results, feed_dict={self.test_idx_: i,
-                                                                   self.test_result_: r})
-            global_episode_count = self.sess.run(self.global_episode_count)
-            print("EPISODE", global_episode_count)
-            test_results = self.sess.run(self.test_results)
-            print('X:', test_results[:3])
-            print('O:', test_results[3:6])
-
-    def load_session(self, sess):
-        self.sess = sess
 
     def get_move(self, env, depth=3, return_value_node=False):
         self.ttable = dict()

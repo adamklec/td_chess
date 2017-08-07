@@ -5,13 +5,13 @@ from agents.random_agent import RandomAgent
 
 class GameEnvBase(metaclass=ABCMeta):
 
-    # def getboard(self):
-    #     return self.__board
-    #
-    # def setboard(self, value):
-    #     self.__board = value
-    #
-    # board = property(getboard, setboard)
+    def getboard(self):
+        return self.__board
+
+    def setboard(self, value):
+        self.__board = value
+
+    board = property(getboard, setboard)
 
     @abstractmethod
     def get_null_move(self):
@@ -66,7 +66,7 @@ class GameEnvBase(metaclass=ABCMeta):
 
     def play_random(self, get_move_function, side):
         self.reset()
-        random_agent = RandomAgent()
+        random_agent = RandomAgent('random_agent_0', None, self)
         if side:
             move_functions = [random_agent.get_move, get_move_function]  # True == 1 == 'X'
         else:

@@ -1,6 +1,5 @@
 import tensorflow as tf
 import numpy as np
-from anytree import Node
 from agents.agent_base import AgentBase
 import random
 
@@ -10,34 +9,9 @@ class EpsilonGreedyAgent(AgentBase):
                  model,
                  env,
                  verbose=False):
+        super().__init__(name, model, env, verbose)
 
-        self.name = name
-        self.global_episode_count = tf.contrib.framework.get_or_create_global_step()
-        with tf.variable_scope('episode_count'):
-            self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
-
-        self.env = env
-        self.sess = None
-        self.verbose = verbose
-
-        self.test_score_ = tf.placeholder(tf.float32, name='test_score_')
-        self.test_results = tf.Variable(tf.zeros((14,)), name="test_results", trainable=False)
-        self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
-        self.test_result_ = tf.placeholder(tf.float32, name='test_result_')
-
-        self.update_test_results = tf.scatter_update(self.test_results, self.test_idx_, self.test_result_)
-        test_total = tf.reduce_sum(self.test_results)
-        tf.summary.scalar("test_total", test_total)
-
-        for i in range(14):
-            tf.summary.scalar("test_" + str(i), tf.reduce_sum(tf.slice(self.test_results, [i], [1])))
-
-        self.model = model
-
-        tvars = self.model.trainable_variables
-        for tvar in tvars:
-            tf.summary.histogram(tvar.op.name, tvar)
-
+        tvars = self.model.trainable_variables()
         # grads = tf.gradients([self.model.value], tvars)
         trainer = tf.train.AdamOptimizer()
         grad_vars = trainer.compute_gradients(self.model.value, tvars)
@@ -74,7 +48,8 @@ class EpsilonGreedyAgent(AgentBase):
             self.reset_traces_op = tf.group(*reset_trace_ops)
 
         with tf.control_dependencies(update_traces):
-            self.apply_grads_op = trainer.apply_gradients([(-lr * delta * trace, tvar) for trace, tvar in zip(traces, tvars)])
+            self.apply_grads_op = trainer.apply_gradients([(-lr * delta * trace, tvar)
+                                                           for trace, tvar in zip(traces, tvars)])
 
     def train(self, epsilon=.05):
         global_episode_count = self.sess.run(self.global_episode_count)
@@ -108,36 +83,6 @@ class EpsilonGreedyAgent(AgentBase):
 
         with open("data/move_log.txt", "a") as move_log:
             move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
-
-    def test(self, test_idxs):
-
-        from envs.chess import ChessEnv
-        from envs.tic_tac_toe import TicTacToeEnv
-
-        if isinstance(self.env, ChessEnv):
-            for test_idx in test_idxs:
-                result = self.env.test(self.get_move, test_idx)
-                self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
-                                                              self.test_result_: result})
-                global_episode_count = self.sess.run(self.global_episode_count)
-                print("EPISODE", global_episode_count,
-                      "TEST_IDX", test_idx,
-                      "TEST TOTAL:", result)
-                print(self.sess.run(self.test_results))
-
-        elif isinstance(self.env, TicTacToeEnv):
-            result = self.env.test(self.get_move, None)
-            for i, r in enumerate(result):
-                self.sess.run(self.update_test_results, feed_dict={self.test_idx_: i,
-                                                              self.test_result_: r})
-            global_episode_count = self.sess.run(self.global_episode_count)
-            print("EPISODE", global_episode_count)
-            test_results = self.sess.run(self.test_results)
-            print('X:', test_results[:3])
-            print('O:', test_results[3:6])
-
-    def load_session(self, sess):
-        self.sess = sess
 
     def calculate_candidate_board_values(self, env):
         legal_moves = env.get_legal_moves()

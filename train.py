@@ -14,12 +14,12 @@ def main():
 
     with tf.train.MonitoredTrainingSession(checkpoint_dir=log_dir,
                                            scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
-        agent.load_session(sess)
+        agent.sess = sess
+
         for i in range(10000000):
             if i % 1000 == 0:
                 agent.test(None)
             agent.train()
-
 
 if __name__ == "__main__":
     main()
