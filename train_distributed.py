@@ -24,16 +24,16 @@ def work(env, job_name, task_index, cluster, log_dir):
             fv_size = env.get_feature_vector_size()
 
             if job_name == "tester":
-                network = ValueModel(fv_size)
-                # network = ChessValueModel()
+                # network = ValueModel(fv_size)
+                network = ChessValueModel()
                 agent_name = 'tester_' + str(task_index)
                 agent = TDLeafAgent(agent_name,
                                     network,
                                     env,
                                     verbose=True)
             else:
-                network = ValueModel(fv_size)
-                # network = ChessValueModel()
+                # network = ValueModel(fv_size)
+                network = ChessValueModel()
                 agent_name = 'trainer_' + str(task_index)
                 agent = TDLeafAgent(agent_name,
                                     network,
@@ -57,14 +57,14 @@ def work(env, job_name, task_index, cluster, log_dir):
                 while not mon_sess.should_stop():
                     # TODO: distribute tests among testers
                     for test_idx in range(14):
-                        agent.random_agent_test(depth=3)
-                        # agent.test(test_idx, depth=1)
+                        # agent.random_agent_test(depth=3)
+                        agent.test(test_idx, depth=3)
 
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:2222']
-    tester_hosts = ['localhost:2223']  #, 'localhost:2224']
-    trainer_hosts = ['localhost:2225', 'localhost:2226']
+    tester_hosts = ['localhost:' + str(3333 + i) for i in range(14)]
+    trainer_hosts = ['localhost:' + str(4444 + i) for i in range(50)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
 
@@ -76,15 +76,15 @@ if __name__ == "__main__":
         p.start()
 
     for task_idx, _ in enumerate(tester_hosts):
-        # env = ChessEnv()
-        env = TicTacToeEnv()
+        env = ChessEnv()
+        # env = TicTacToeEnv()
         p = Process(target=work, args=(env, 'tester', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
 
     for task_idx, _ in enumerate(trainer_hosts):
-        # env = ChessEnv()
-        env = TicTacToeEnv()
+        env = ChessEnv()
+        # env = TicTacToeEnv()
         p = Process(target=work, args=(env, 'trainer', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
