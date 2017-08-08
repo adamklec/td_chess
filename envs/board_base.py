@@ -24,8 +24,4 @@ class BoardBase(metaclass=ABCMeta):
     def copy(self):
         return NotImplemented
 
-    @abstractmethod
-    def zobrist_hash(self):
-        return NotImplemented
-
 BoardBase.register(chess.Board)

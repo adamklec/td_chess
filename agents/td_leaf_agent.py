@@ -130,7 +130,7 @@ class TDLeafAgent(AgentBase):
     def negamax(self, node, depth, alpha, beta, value_function):
         alpha_orig = alpha
 
-        hash_key = node.board.zobrist_hash()
+        hash_key = node.board.fen()
         tt_row = self.ttable.get(hash_key)
         if tt_row is not None and tt_row['depth'] >= depth:
             if tt_row['flag'] == 'EXACT':

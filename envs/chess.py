@@ -111,7 +111,7 @@ class ChessEnv(GameEnvBase):
         parent_board = board.copy()
         move = parent_board.pop()
 
-        tt_row = ttable.get(board.zobrist_hash())
+        tt_row = ttable.get(board.fen())
         if tt_row is not None:
             if tt_row['flag'] == 'EXACT':
                 return 0

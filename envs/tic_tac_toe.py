@@ -192,8 +192,5 @@ class TicTacToeBoard(BoardBase):
         else:
             return None
 
-    def zobrist_hash(self):
-        return self.fen()
-
     def copy(self):
         return deepcopy(self)
