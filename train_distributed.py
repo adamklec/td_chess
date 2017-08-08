@@ -38,7 +38,7 @@ def work(env, job_name, task_index, cluster, log_dir):
                 agent = TDLeafAgent(agent_name,
                                     network,
                                     env,
-                                    verbose=False)
+                                    verbose=True)
 
             summary_op = tf.summary.merge_all()
 
@@ -65,7 +65,7 @@ def work(env, job_name, task_index, cluster, log_dir):
 if __name__ == "__main__":
     ps_hosts = ['localhost:2222']
     tester_hosts = ['localhost:' + str(3333 + i) for i in range(14)]
-    trainer_hosts = ['localhost:' + str(4444 + i) for i in range(50)]
+    trainer_hosts = ['localhost:' + str(4444 + i) for i in range(40)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
 

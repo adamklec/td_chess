@@ -74,7 +74,7 @@ class AgentBase(metaclass=ABCMeta):
         return NotImplemented
 
     def test(self, test_idx, depth=1):
-        result = self.env.test(self.get_move_function(depth=depth), test_idx)
+        result = self.env.test(self.get_move_function(depth=depth), test_idx, verbose=self.verbose)
         self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
                                                            self.test_result_: result})
         global_episode_count = self.sess.run(self.global_episode_count)
@@ -90,10 +90,8 @@ class AgentBase(metaclass=ABCMeta):
             self.sess.run(update_op, feed_dict={self.test_result_: result})
 
         global_episode_count = self.sess.run(self.global_episode_count)
-        test_results = self.sess.run(self.test_results)
 
         if self.verbose:
             print("EPISODE", global_episode_count)
             print('FIRST PLAYER:', self.sess.run([self.first_player_wins, self.first_player_draws, self.first_player_losses]))
             print('SECOND PLAYER:', self.sess.run([self.second_player_wins, self.second_player_draws, self.second_player_losses]))
-

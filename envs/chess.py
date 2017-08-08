@@ -5,7 +5,7 @@ from random import choice, randint
 from .game_env_base import GameEnvBase
 from os import listdir
 import pandas as pd
-
+import time
 
 class ChessEnv(GameEnvBase):
 
@@ -122,7 +122,7 @@ class ChessEnv(GameEnvBase):
         else:
             return 3
 
-    def test(self, get_move_function, test_idx):
+    def test(self, get_move_function, test_idx, verbose=False):
         tests = []
         path = "./chess_tests/"
         for filename in listdir(path):
@@ -130,9 +130,10 @@ class ChessEnv(GameEnvBase):
 
         df, name = tests[test_idx]
         result = 0
-        print('running test suite:', name)
-        # for fen, c0 in zip(df.fen[:1], df.c0[:1]):
-        for fen, c0 in zip(df.fen, df.c0):
+        # print('running test suite:', name)
+        for i, (fen, c0) in enumerate(list(zip(df.fen, df.c0))):
+            if verbose:
+                print('test suite', name, ':', i)
             board = chess.Board(fen=fen)
             self.board = board
             move = get_move_function(self)
