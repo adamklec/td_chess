@@ -51,20 +51,21 @@ def work(env, job_name, task_index, cluster, log_dir):
 
             if job_name == "trainer":
                 while not mon_sess.should_stop():
-                    agent.train(depth=3)
+                    agent.train(depth=1)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
-                    # TODO: distribute tests among testers
-                    for test_idx in range(14):
-                        # agent.random_agent_test(depth=3)
-                        agent.test(test_idx, depth=3)
+                    agent.test(task_idx, depth=1)
+                    # # TODO: distribute tests among testers
+                    # for test_idx in range(14):
+                    #     # agent.random_agent_test(depth=3)
+                    #     agent.test(test_idx, depth=3)
 
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:2222']
-    tester_hosts = ['localhost:' + str(3333 + i) for i in range(14)]
-    trainer_hosts = ['localhost:' + str(4444 + i) for i in range(50)]
+    tester_hosts = ['localhost:' + str(3333 + i) for i in range(1)]
+    trainer_hosts = ['localhost:' + str(4444 + i) for i in range(2)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
 
