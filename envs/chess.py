@@ -92,19 +92,19 @@ class ChessEnv(GameEnvBase):
         parent_board = board.copy()
         move = parent_board.pop()
 
-        is_check = board.is_check()
-        parent_is_check = parent_board.is_check()
+        # is_check = board.is_check()
+        # parent_is_check = parent_board.is_check()
 
-        if parent_board.is_capture(move):
+        if parent_board.is_capture(move) and not parent_board.is_en_passant(move):
             capturing_piece_type = parent_board.piece_type_at(move.from_square)
             captured_piece_type = parent_board.piece_type_at(move.to_square)
-            is_winning_capture = (capturing_piece_type < captured_piece_type)
+            is_losing_capture = (capturing_piece_type > captured_piece_type)
         else:
-            is_winning_capture = False
+            is_losing_capture = False
 
         is_promotion = move.promotion is not None
 
-        return not (is_check or parent_is_check or is_winning_capture or is_promotion)
+        return not (is_losing_capture or is_promotion)
 
     @staticmethod
     def move_order_key(board, ttable):

@@ -132,8 +132,9 @@ class TDLeafAgent(AgentBase):
 
         hash_key = node.board.zobrist_hash()
         tt_row = self.ttable.get(hash_key)
-        if tt_row is not None:  # and tt_row['depth'] >= depth:
+        if tt_row is not None and tt_row['depth'] >= depth:
             if tt_row['flag'] == 'EXACT':
+
                 return tt_row['value'], node
             elif tt_row['flag'] == 'LOWERBOUND':
                 alpha = max(alpha, tt_row['value'])
@@ -152,8 +153,7 @@ class TDLeafAgent(AgentBase):
             else:
                 return -value, node
 
-        # elif depth <= 0 and self.env.is_quiet(node.board):
-        elif depth <= 0:
+        elif depth <= 0 and self.env.is_quiet(node.board):
             fv = self.env.make_feature_vector(node.board)
             value = value_function(fv)
             if node.board.turn:
@@ -195,76 +195,6 @@ class TDLeafAgent(AgentBase):
         tt_row['depth'] = depth
         self.ttable[hash_key] = tt_row
         return v, n
-
-
-    def negascout(self, node, depth, alpha, beta, value_function):
-        alpha_orig = alpha
-
-        # hash_key = node.board.zobrist_hash()
-        # tt_row = self.ttable.get(hash_key)
-        # if tt_row is not None and tt_row['depth'] >= depth:
-        #     if tt_row['flag'] == 'EXACT':
-        #         return tt_row['value'], node
-        #     elif tt_row['flag'] == 'LOWERBOUND':
-        #         print('found LOWERBOUND')
-        #         alpha = max(alpha, tt_row['value'])
-        #     elif tt_row['flag'] == 'UPPERBOUND':
-        #         print('found UPPERBOUND')
-        #         beta = min(beta, tt_row['value'])
-        #     if alpha >= beta:
-        #         print('alpha:', alpha, 'beta:', beta)
-        #         print(tt_row['value'], node)
-        #         return tt_row['value'], node
-
-        # if (depth <= 0 and self.env.is_quiet(node.board)) or node.board.is_game_over():
-        if depth <= 0 or node.board.is_game_over():
-            fv = self.env.make_feature_vector(node.board)
-            value = value_function(fv)[0, 0]
-            if node.board.turn:
-                return value, node
-            else:
-                return -value, node
-
-        children = []
-        for move in node.board.legal_moves:
-            child_board = node.board.copy()
-            child_board.push(move)
-            child = Node(str(move), parent=node, board=child_board, move=move)
-            children.append(child)
-
-        children = sorted(children, key=lambda child: self.env.move_order_key(child.board, self.ttable))
-
-        n = node
-        for idx, child in enumerate(children):
-            if idx == 0:
-                score, nn = self.negascout(child, depth - 1, -beta, -alpha, value_function)
-                score = -score
-            else:
-                score, nn = self.negascout(child, depth - 1, -alpha - 1, -alpha, value_function)
-                score = -score
-                if alpha < score < beta:
-                    score, nn = self.negascout(child, depth - 1, -beta, -score, value_function)
-                    score = -score
-            if score > alpha:
-                alpha = score
-                n = nn
-            if alpha >= beta:
-                break
-
-        # if tt_row is None:
-        #     tt_row = dict()
-        # tt_row['value'] = score
-        # if score <= alpha_orig:
-        #     tt_row['flag'] = 'UPPERBOUND'
-        # elif score >= beta:
-        #     tt_row['flag'] = 'LOWERBOUND'
-        # else:
-        #     tt_row['flag'] = 'EXACT'
-        #
-        # tt_row['depth'] = depth
-        # self.ttable[hash_key] = tt_row
-
-        return alpha, n
 
 
 def convert_string_result(string):

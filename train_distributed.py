@@ -51,13 +51,13 @@ def work(env, job_name, task_index, cluster, log_dir):
 
             if job_name == "trainer":
                 while not mon_sess.should_stop():
-                    agent.train(depth=1)
+                    agent.train(depth=3)
 
             elif job_name == "tester":
                 while not mon_sess.should_stop():
                     # TODO: distribute tests among testers
                     for test_idx in range(14):
-                        agent.random_agent_test(depth=1)
+                        agent.random_agent_test(depth=3)
                         # agent.test(test_idx, depth=1)
 
 
