@@ -137,8 +137,7 @@ class ChessEnv(GameEnvBase):
             board = chess.Board(fen=fen)
             self.board = board
             move = get_move_function(self)
-            reward = c0.get(board.san(move), 0)
-            result += reward
+            result += c0.get(board.san(move), 0)
         return result
 
     @staticmethod
