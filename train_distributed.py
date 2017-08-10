@@ -83,7 +83,6 @@ if __name__ == "__main__":
         p = Process(target=work, args=(env, 'tester', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
-        time.sleep(1)
 
     for task_idx, _ in enumerate(trainer_hosts):
         env = ChessEnv()
@@ -91,7 +90,6 @@ if __name__ == "__main__":
         p = Process(target=work, args=(env, 'trainer', task_idx, cluster, ckpt_dir,))
         processes.append(p)
         p.start()
-        time.sleep(1)
 
     for process in processes:
         process.join()
