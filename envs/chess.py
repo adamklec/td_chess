@@ -135,14 +135,13 @@ class ChessEnv(GameEnvBase):
     def test(self, get_move_function, test_idx, verbose=False):
         df, name = self.tests[test_idx]
         result = 0
-        # print('running test suite:', name)
-        for i, (fen, c0) in enumerate(zip(df.fen, df.c0)):
+        for i, (_, row) in enumerate(df.iterrows()):
             if verbose:
                 print('test suite', name, ':', i)
-            board = chess.Board(fen=fen)
+            board = chess.Board(fen=row.fen)
             self.board = board
             move = get_move_function(self)
-            result += c0.get(board.san(move), 0)
+            result += row.c0.get(board.san(move), 0)
         return result
 
     @staticmethod
