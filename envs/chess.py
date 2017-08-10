@@ -136,7 +136,7 @@ class ChessEnv(GameEnvBase):
         df, name = self.tests[test_idx]
         result = 0
         # print('running test suite:', name)
-        for i, (fen, c0) in enumerate(list(zip(df.fen, df.c0))):
+        for i, (fen, c0) in enumerate(zip(df.fen, df.c0)):
             if verbose:
                 print('test suite', name, ':', i)
             board = chess.Board(fen=fen)
