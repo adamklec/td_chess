@@ -45,6 +45,9 @@ class TicTacToeEnv(GameEnvBase):
             board = self.board
         return board.legal_moves
 
+    def zobrist_hash(self, board):
+        return board.fen()
+
     @classmethod
     def make_feature_vector(cls, board):
         fv_size = cls.get_feature_vector_size()

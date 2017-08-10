@@ -1,5 +1,6 @@
 import numpy as np
 import chess
+from chess.polyglot import zobrist_hash
 from chess.pgn import read_game
 from random import choice, randint
 from .game_env_base import GameEnvBase
@@ -9,7 +10,8 @@ import time
 
 class ChessEnv(GameEnvBase):
 
-    def __init__(self, load_pgn=True):
+    def __init__(self, load_pgn=True, load_tests=False):
+        self.load_tests = load_tests
         self.load_pgn = load_pgn
         self.board = chess.Board()
 
@@ -18,6 +20,14 @@ class ChessEnv(GameEnvBase):
             self.board_generator = random_board_generator(pgn)
         else:
             self.board_generator = None
+
+        if self.load_tests:
+            self.tests = []
+            path = "./chess_tests/"
+            for filename in listdir(path):
+                self.tests.append((parse_tests(path + filename), filename))
+        else:
+            self.tests = None
 
     def get_null_move(self):
         return chess.Move.null()
@@ -123,12 +133,7 @@ class ChessEnv(GameEnvBase):
             return 3
 
     def test(self, get_move_function, test_idx, verbose=False):
-        tests = []
-        path = "./chess_tests/"
-        for filename in listdir(path):
-            tests.append((parse_tests(path + filename), filename))
-
-        df, name = tests[test_idx]
+        df, name = self.tests[test_idx]
         result = 0
         # print('running test suite:', name)
         for i, (fen, c0) in enumerate(list(zip(df.fen, df.c0))):
@@ -156,6 +161,9 @@ class ChessEnv(GameEnvBase):
             W_1[cls.make_feature_vector(board)[0] == 1, 0] = value
             W_1[-5:] = 0
         return W_1
+
+    def zobrist_hash(self, board):
+        return zobrist_hash(board)
 
 
 def random_board_generator(pgn):

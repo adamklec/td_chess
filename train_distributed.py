@@ -65,7 +65,7 @@ def work(env, job_name, task_index, cluster, log_dir):
 if __name__ == "__main__":
     ps_hosts = ['localhost:2222']
     tester_hosts = ['localhost:' + str(3333 + i) for i in range(14)]
-    trainer_hosts = ['localhost:' + str(4444 + i) for i in range(30)]
+    trainer_hosts = ['localhost:' + str(4444 + i) for i in range(40)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
 
@@ -78,7 +78,7 @@ if __name__ == "__main__":
         time.sleep(1)
 
     for task_idx, _ in enumerate(tester_hosts):
-        env = ChessEnv()
+        env = ChessEnv(load_pgn=False, load_tests=True)
         # env = TicTacToeEnv()
         p = Process(target=work, args=(env, 'tester', task_idx, cluster, ckpt_dir,))
         processes.append(p)

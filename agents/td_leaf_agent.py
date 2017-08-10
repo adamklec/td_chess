@@ -130,7 +130,7 @@ class TDLeafAgent(AgentBase):
     def negamax(self, node, depth, alpha, beta, value_function):
         alpha_orig = alpha
 
-        hash_key = node.board.fen()
+        hash_key = self.env.zobrist_hash(node.board)
         tt_row = self.ttable.get(hash_key)
         if tt_row is not None and tt_row['depth'] >= depth:
             if tt_row['flag'] == 'EXACT':
@@ -154,6 +154,9 @@ class TDLeafAgent(AgentBase):
                 return -value, node
 
         elif depth <= 0 and self.env.is_quiet(node.board):
+            # print(depth)
+            # print(node.path[0].board.fen())
+            # print([node.move for node in node.path])
             fv = self.env.make_feature_vector(node.board)
             value = value_function(fv)
             if node.board.turn:

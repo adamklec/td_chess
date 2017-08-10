@@ -64,6 +64,10 @@ class GameEnvBase(metaclass=ABCMeta):
     def test(self, get_move_function, test_idx):
         return NotImplemented
 
+    @abstractmethod
+    def zobrist_hash(self, board):
+        return NotImplemented
+
     def play_random(self, get_move_function, side):
         self.reset()
         random_agent = RandomAgent('random_agent_0', None, self)
