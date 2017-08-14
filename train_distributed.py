@@ -63,7 +63,7 @@ def work(env, job_name, task_index, cluster, log_dir):
 
 
 if __name__ == "__main__":
-    ps_hosts = ['localhost:' + str(222 + i) for i in range(3)]
+    ps_hosts = ['localhost:' + str(2222 + i) for i in range(3)]
     tester_hosts = ['localhost:' + str(3333 + i) for i in range(14)]
     trainer_hosts = ['localhost:' + str(4444 + i) for i in range(30)]
     ckpt_dir = "./log/" + str(int(time.time()))
