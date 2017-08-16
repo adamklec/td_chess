@@ -16,7 +16,7 @@ class AgentBase(metaclass=ABCMeta):
             for tvar in self.model.trainable_variables:
                 tf.summary.histogram(tvar.op.name, tvar)
 
-            self.global_episode_count = tf.contrib.framework.get_or_create_global_step()
+            self.global_episode_count = tf.train.get_or_create_global_step()
             with tf.variable_scope('episode_count'):
                 self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
 
