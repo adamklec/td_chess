@@ -8,6 +8,7 @@ from os import listdir
 import pandas as pd
 import time
 
+
 class ChessEnv(GameEnvBase):
 
     def __init__(self, load_pgn=True, load_tests=False):
