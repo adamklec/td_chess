@@ -82,22 +82,18 @@ class TDLeafAgent(AgentBase):
 
         global_episode_count = self.sess.run(self.global_episode_count)
         self.sess.run(self.increment_global_episode_count_op)
-        if global_episode_count % 10 == 0:
-            run_update = True
-        else:
-            run_update = False
-            
-        if run_update:
-            print('global_episode_count:', global_episode_count)
+
+        if global_episode_count % 20 == 0:
+            print('global_episode_count:', global_episode_count, "updating model")
 
             self.sess.run(self.apply_grads, feed_dict={grad_: grad_accum
-                                                  for grad_, grad_accum in zip(self.grad_s, grad_accums)})
+                                                       for grad_, grad_accum in zip(self.grad_s, grad_accums)})
             self.sess.run(self.reset_grad_accums)
 
-        if self.verbose:
-            print("global episode:", global_episode_count,
-                  self.name,
-                  'reward:', self.env.get_reward())
+        # if self.verbose:
+        #     print("global episode:", global_episode_count,
+        #           self.name,
+        #           'reward:', self.env.get_reward())
 
         selected_moves_string = ','.join([str(m) for m in selected_moves])
 
