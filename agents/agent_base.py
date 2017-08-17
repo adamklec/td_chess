@@ -77,12 +77,14 @@ class AgentBase(metaclass=ABCMeta):
         result = self.env.test(self.get_move_function(depth=depth), test_idx, verbose=self.verbose)
         self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
                                                            self.test_result_: result})
+        test_results = self.sess.run(self.test_results)
         global_episode_count = self.sess.run(self.global_episode_count)
         if self.verbose:
             print("EPISODE:", global_episode_count,
                   "STS#:", test_idx+1,
-                  "RESULT:", result)
-            print(self.sess.run(self.test_results))
+                  "RESULT:", result,
+                  "TOTAL:", sum(test_results))
+            print(test_results)
 
     def random_agent_test(self, depth=1):
         result = self.env.random_agent_test(self.get_move_function(depth))
