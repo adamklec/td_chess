@@ -75,7 +75,7 @@ class AgentBase(metaclass=ABCMeta):
 
     def test(self, test_idx, depth=1):
         result = self.env.test(self.get_move_function(depth=depth), test_idx, verbose=self.verbose)
-        self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx - 1,  # test_idx refers to test filenames which are indexed to 1.
+        self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
                                                            self.test_result_: result})
         global_episode_count = self.sess.run(self.global_episode_count)
         if self.verbose:
