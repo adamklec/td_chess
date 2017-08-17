@@ -79,9 +79,9 @@ class AgentBase(metaclass=ABCMeta):
                                                            self.test_result_: result})
         global_episode_count = self.sess.run(self.global_episode_count)
         if self.verbose:
-            print("EPISODE", global_episode_count,
-                  "TEST_IDX", test_idx,
-                  "TEST TOTAL:", result)
+            print("EPISODE:", global_episode_count,
+                  "STS #:", test_idx+1,
+                  "RESULT:", result)
             print(self.sess.run(self.test_results))
 
     def random_agent_test(self, depth=1):
@@ -92,6 +92,6 @@ class AgentBase(metaclass=ABCMeta):
         global_episode_count = self.sess.run(self.global_episode_count)
 
         if self.verbose:
-            print("EPISODE", global_episode_count)
+            print("EPISODE:", global_episode_count)
             print('FIRST PLAYER:', self.sess.run([self.first_player_wins, self.first_player_draws, self.first_player_losses]))
             print('SECOND PLAYER:', self.sess.run([self.second_player_wins, self.second_player_draws, self.second_player_losses]))
