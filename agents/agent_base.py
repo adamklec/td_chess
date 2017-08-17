@@ -80,7 +80,7 @@ class AgentBase(metaclass=ABCMeta):
         global_episode_count = self.sess.run(self.global_episode_count)
         if self.verbose:
             print("EPISODE:", global_episode_count,
-                  "STS #:", test_idx+1,
+                  "STS#:", test_idx+1,
                   "RESULT:", result)
             print(self.sess.run(self.test_results))
 

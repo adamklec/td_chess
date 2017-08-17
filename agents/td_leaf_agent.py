@@ -154,7 +154,7 @@ class TDLeafAgent(AgentBase):
             else:
                 return -value, node
 
-        elif (depth <= 0 and self.env.is_quiet(node.board)) or depth < -10:
+        elif (depth <= 0 and self.env.is_quiet(node.board)): # or depth < -10:
             # print(depth)
             # print(node.path[0].board.fen())
             # print([node.move for node in node.path])
@@ -172,8 +172,8 @@ class TDLeafAgent(AgentBase):
             child = Node(str(move), parent=node, board=child_board, move=move)
             children.append(child)
 
-        children = sorted(children, key=lambda child: self.env.move_order_key(child.board, self.ttable))
-
+        # children = sorted(children, key=lambda child: self.env.move_order_key(child.board, self.ttable))
+        children = self.env.sort_children(node, children, self.ttable)
         v = -100000
         n = node
         for child in children:

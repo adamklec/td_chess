@@ -134,6 +134,39 @@ class ChessEnv(GameEnvBase):
         else:
             return 3
 
+    def sort_children(self, parent, children, ttable):
+        exact_tt_moves = []
+        lower_tt_moves = []
+        captures = []
+        others = []
+
+        tt_row = ttable.get(parent.board.fen())
+        for child in children:
+            if tt_row is not None:
+                if tt_row['flag'] == 'EXACT':
+                    exact_tt_moves.append(child)
+                    return 0
+                if tt_row['flag'] == 'LOWERBOUND':
+                    lower_tt_moves.append(child)
+                    return 1
+            elif parent.board.is_capture(child.move):
+                captures.append(child)
+            else:
+                others.append(child)
+
+        captures = sorted(captures, key=lambda node: self.mmv_lva(node.parent.board, node.move))
+        return exact_tt_moves + lower_tt_moves + captures + others
+
+    @staticmethod
+    def mmv_lva(board, move):
+        if board.is_en_passant(move):
+            aggressor = chess.PAWN
+            victim = chess.PAWN
+        else:
+            aggressor = board.piece_type_at(move.from_square)
+            victim = board.piece_type_at(move.to_square)
+        return int(str(6 - victim) + str(aggressor - 1))
+
     def test(self, get_move_function, test_idx, verbose=False):
         df, name = self.tests[test_idx]
         result = 0
