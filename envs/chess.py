@@ -171,8 +171,8 @@ class ChessEnv(GameEnvBase):
         df, name = self.tests[test_idx]
         result = 0
         for i, (_, row) in enumerate(df.iterrows()):
-            if verbose:
-                print('test suite', name, ':', i)
+            # if verbose:
+            #     print('test suite', name, ':', i)
             board = chess.Board(fen=row.fen)
             self.board = board
             move = get_move_function(self)
