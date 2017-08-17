@@ -25,7 +25,8 @@ class ChessEnv(GameEnvBase):
         if self.load_tests:
             self.tests = []
             path = "./chess_tests/"
-            for filename in listdir(path):
+            filenames = ['STS%i.epd' % i for i in range(1, 15)]
+            for filename in filenames:
                 self.tests.append((parse_tests(path + filename), filename))
         else:
             self.tests = None
