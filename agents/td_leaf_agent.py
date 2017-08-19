@@ -82,7 +82,7 @@ class TDLeafAgent(AgentBase):
         global_episode_count = self.sess.run(self.global_episode_count)
         self.sess.run(self.increment_global_episode_count_op)
 
-        if global_episode_count % 20 == 0:
+        if global_episode_count % 100 == 0:
             print('EPISODE:', global_episode_count, "updating model")
 
             self.sess.run(self.apply_grads, feed_dict={grad_: grad_accum

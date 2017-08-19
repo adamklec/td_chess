@@ -1,5 +1,6 @@
 import tensorflow as tf
 from agents.epsilon_greedy_agent import EpsilonGreedyAgent
+from agents.td_leaf_agent import TDLeafAgent
 from envs.tic_tac_toe import TicTacToeEnv
 from value_model import ValueModel
 import time
@@ -8,7 +9,8 @@ import time
 def main():
     env = TicTacToeEnv()
     network = ValueModel(env.get_feature_vector_size())
-    agent = EpsilonGreedyAgent('agent_0', network, env, verbose=True)
+    # agent = EpsilonGreedyAgent('agent_0', network, env, verbose=True)
+    agent = TDLeafAgent('agent_0', network, env, verbose=True)
     summary_op = tf.summary.merge_all()
     log_dir = "./log/" + str(int(time.time()))
 
@@ -17,9 +19,9 @@ def main():
         agent.sess = sess
 
         for i in range(10000000):
-            if i % 1000 == 0:
-                agent.random_agent_test()
-            agent.train()
+            if i % 100 == 0:
+                agent.random_agent_test(depth=3)
+            agent.train(depth=3)
 
 if __name__ == "__main__":
     main()

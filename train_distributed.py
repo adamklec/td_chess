@@ -21,73 +21,49 @@ def work(env, job_name, task_index, cluster, log_dir):
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
 
-            fv_size = env.get_feature_vector_size()
-
-            if job_name == "tester":
-                # network = ValueModel(fv_size)
-                network = ChessValueModel()
-                agent_name = 'tester_' + str(task_index)
-                agent = TDLeafAgent(agent_name,
-                                    network,
-                                    env,
-                                    verbose=True)
-            else:
-                # network = ValueModel(fv_size)
-                network = ChessValueModel()
-                agent_name = 'trainer_' + str(task_index)
-                agent = TDLeafAgent(agent_name,
-                                    network,
-                                    env,
-                                    verbose=True)
+            # fv_size = env.get_feature_vector_size()
+            # network = ValueModel(fv_size)
+            network = ChessValueModel()
+            agent_name = 'worker_' + str(task_index)
+            agent = TDLeafAgent(agent_name,
+                                network,
+                                env,
+                                verbose=True)
 
             summary_op = tf.summary.merge_all()
 
         with tf.train.MonitoredTrainingSession(master=server.target,
-                                               is_chief=(task_index == 0 and job_name == 'trainer'),
+                                               is_chief=(task_index == 0 and job_name == 'worker'),
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=10,
-                                               scaffold=tf.train.Scaffold(summary_op=summary_op)) as mon_sess:
-            agent.sess = mon_sess
+                                               scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
+            agent.sess = sess
 
-            if job_name == "trainer":
-                while not mon_sess.should_stop():
-                    agent.train(depth=1)
-
-            elif job_name == "tester":
-                while not mon_sess.should_stop():
-                    agent.test(task_idx, depth=1)
-                    # # TODO: distribute tests among testers
-                    # for test_idx in range(14):
-                    #     # agent.random_agent_test(depth=3)
-                    #     agent.test(test_idx, depth=3)
-
+            if job_name == "worker":
+                while not sess.should_stop():
+                    if (sess.run(agent.global_episode_count) - task_idx) % 1000 == 0 and task_idx < 14:
+                        agent.test(task_idx, depth=1)
+                    else:
+                        agent.train(depth=1)
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(4)]
-    tester_hosts = ['localhost:' + str(3333 + i) for i in range(14)]
-    trainer_hosts = ['localhost:' + str(4444 + i) for i in range(30)]
+    worker_hosts = ['localhost:' + str(3333 + i) for i in range(44)]
     ckpt_dir = "./log/" + str(int(time.time()))
-    cluster = tf.train.ClusterSpec({"ps": ps_hosts, "tester": tester_hosts, "trainer": trainer_hosts})
+    cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
     processes = []
 
     for task_idx, _ in enumerate(ps_hosts):
-        p = Process(target=work, args=(None, 'ps', task_idx, cluster, ckpt_dir,))
+        p = Process(target=work, args=(None, 'ps', task_idx, cluster_spec, ckpt_dir,))
         processes.append(p)
         p.start()
         time.sleep(1)
 
-    for task_idx, _ in enumerate(tester_hosts):
-        env = ChessEnv(load_pgn=False, load_tests=True)
+    for task_idx, _ in enumerate(worker_hosts):
+        env = ChessEnv(load_pgn=True, load_tests=True)
         # env = TicTacToeEnv()
-        p = Process(target=work, args=(env, 'tester', task_idx, cluster, ckpt_dir,))
-        processes.append(p)
-        p.start()
-
-    for task_idx, _ in enumerate(trainer_hosts):
-        env = ChessEnv()
-        # env = TicTacToeEnv()
-        p = Process(target=work, args=(env, 'trainer', task_idx, cluster, ckpt_dir,))
+        p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir,))
         processes.append(p)
         p.start()
 
