@@ -80,11 +80,13 @@ class AgentBase(metaclass=ABCMeta):
         test_results = self.sess.run(self.test_results)
         global_episode_count = self.sess.run(self.global_episode_count)
         if self.verbose:
-            print("EPISODE:", global_episode_count,
+            print("EPISODE:", global_episode_count, "TEST",
                   "STS#:", test_idx + 1,
                   "RESULT:", result,
                   "TOTAL:", sum(test_results))
             print(test_results)
+            print('-' * 100)
+
 
     def random_agent_test(self, depth=1):
         result = self.env.random_agent_test(self.get_move_function(depth))
@@ -94,7 +96,7 @@ class AgentBase(metaclass=ABCMeta):
         global_episode_count = self.sess.run(self.global_episode_count)
 
         if self.verbose:
-            print("EPISODE:", global_episode_count)
+            print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")
             print('FIRST PLAYER:', self.sess.run([self.first_player_wins, self.first_player_draws, self.first_player_losses]))
             print('SECOND PLAYER:', self.sess.run([self.second_player_wins, self.second_player_draws, self.second_player_losses]))
             print('-' * 100)
