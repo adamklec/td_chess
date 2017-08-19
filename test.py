@@ -1,16 +1,17 @@
 import tensorflow as tf
 from agents.td_leaf_agent import TDLeafAgent
-from envs.chess import ChessEnv, simple_value_from_board
-from value_model import ValueModel
+from envs.chess import ChessEnv
+from chess_value_model import ChessValueModel
 import time
-import cProfile
+# import cProfile
+
 
 def main():
 
     config = tf.ConfigProto(device_count={'GPU': 0})
     with tf.Session(config=config) as sess:
 
-        network = ValueModel(ChessEnv.get_feature_vector_size())
+        network = ChessValueModel()
         env = ChessEnv(load_tests=True)
 
         agent = TDLeafAgent('tester_0', network, env, verbose=True)

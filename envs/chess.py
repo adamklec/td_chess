@@ -74,30 +74,45 @@ class ChessEnv(GameEnvBase):
         legal_moves = list(board.legal_moves)
         return legal_moves
 
+    # @classmethod
+    # def make_feature_vector(cls, board):
+    #     # 6 piece type maps + en passant square map for each color + 4 castling rights bit + 1 turn bit
+    #     fv_size = cls.get_feature_vector_size()
+    #
+    #     feature_vector = np.zeros((1, fv_size), dtype='float32')
+    #
+    #     for piece in range(1, 6):
+    #         for color in range(2):
+    #             squares = board.pieces(piece, color)
+    #             for square in squares:
+    #                 feature_vector[0, (piece-1) + 6 * color + 12 * square] = 1
+    #
+    #     ep_square = board.ep_square
+    #     if ep_square:
+    #         feature_vector[0, -64 * (board.turn + 1) - 5 + ep_square] = 1
+    #
+    #     feature_vector[0, -5] = board.has_kingside_castling_rights(0)
+    #     feature_vector[0, -4] = board.has_queenside_castling_rights(0)
+    #     feature_vector[0, -3] = board.has_kingside_castling_rights(1)
+    #     feature_vector[0, -2] = board.has_queenside_castling_rights(1)
+    #     feature_vector[0, -1] = board.turn
+    #
+    #     return feature_vector
+
     @classmethod
     def make_feature_vector(cls, board):
-        # 6 piece type maps + en passant square map for each color + 4 castling rights bit + 1 turn bit
-        fv_size = cls.get_feature_vector_size()
-
-        feature_vector = np.zeros((1, fv_size), dtype='float32')
-
-        for piece in range(1, 6):
-            for color in range(2):
-                squares = board.pieces(piece, color)
-                for square in squares:
-                    feature_vector[0, (piece-1) + 6 * color + 12 * square] = 1
-
-        ep_square = board.ep_square
-        if ep_square:
-            feature_vector[0, -64 * (board.turn + 1) - 5 + board.ep_square] = 1
-
-        feature_vector[0, -5] = board.has_kingside_castling_rights(0)
-        feature_vector[0, -4] = board.has_queenside_castling_rights(0)
-        feature_vector[0, -3] = board.has_kingside_castling_rights(1)
-        feature_vector[0, -2] = board.has_queenside_castling_rights(1)
-        feature_vector[0, -1] = board.turn
-
-        return feature_vector
+        fv = np.zeros((1, 565))
+        fv[0, king_queen_features(board)] = 1.0
+        fv[0, pair_piece_features(board)] = 1.0
+        fv[0, pawn_features(board)] = 1.0
+        if board.ep_square is not None:
+            fv[0, ep_target_feature(board) - 22] = 1.0
+        fv[0, 555] = float(board.has_kingside_castling_rights(0))
+        fv[0, 561] = float(board.has_queenside_castling_rights(0))
+        fv[0, 562] = float(board.has_kingside_castling_rights(1))
+        fv[0, 563] = float(board.has_queenside_castling_rights(1))
+        fv[0, 564] = float(board.turn)
+        return fv
 
     @staticmethod
     def is_quiet(board):
@@ -181,19 +196,28 @@ class ChessEnv(GameEnvBase):
 
     @staticmethod
     def get_feature_vector_size():
-        return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
+        # return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
+        return 565
+
+    # @classmethod
+    # def get_simple_value_weights(cls):
+    #     fv_size = cls.get_feature_vector_size()
+    #     W_1 = np.zeros((fv_size, 1))
+    #     pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
+    #     values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
+    #     for piece, value in zip(pieces, values):
+    #         fen = '/'.join([8 * piece for _ in range(8)]) + ' w - - 0 1'
+    #         board = chess.Board(fen)
+    #         W_1[cls.make_feature_vector(board)[0] == 1, 0] = value
+    #         W_1[-5:] = 0
+    #     return W_1
 
     @classmethod
     def get_simple_value_weights(cls):
         fv_size = cls.get_feature_vector_size()
+        weights = np.array([-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15] + [1] * 8 + [3] * 4 + [5] * 2 + [9] + [15])
         W_1 = np.zeros((fv_size, 1))
-        pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
-        values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
-        for piece, value in zip(pieces, values):
-            fen = '/'.join([8 * piece for _ in range(8)]) + ' w - - 0 1'
-            board = chess.Board(fen)
-            W_1[cls.make_feature_vector(board)[0] == 1, 0] = value
-            W_1[-5:] = 0
+        W_1[16:17*32:17, 0] = weights
         return W_1
 
     def zobrist_hash(self, board):
@@ -280,3 +304,79 @@ def parse_tests(filename):
     df = pd.DataFrame.from_dict(dicts)
     df = df.set_index('id')
     return df
+
+
+def pawn_features(board):
+    idxs = []
+    for side in range(2):
+        empty_slots = set(range(8))
+        unplaced_squares = set()
+        squares = set(board.pieces(1, side))
+        for i, square in enumerate(squares):
+            file = square % 8
+            if file in empty_slots:
+                rank = int(square / 8)
+                file = square % 8
+                offset = file * 17 + side * 272
+                idxs.append(file + offset)
+                idxs.append(rank + 8 + offset)
+                idxs.append(16 + offset)
+                empty_slots.remove(file)
+            else:
+                unplaced_squares.add(square)
+
+        empty_slots = list(empty_slots)
+        for i, square in enumerate(unplaced_squares):
+            file = square % 8
+            dists = [(slot - file) ** 2 for slot in empty_slots]
+            slot = empty_slots[np.argmin(dists)]
+            empty_slots.remove(slot)
+            rank = int(square / 8)
+            offset = slot * 17 + side * 272
+            idxs.append(file + offset)
+            idxs.append(rank + 8 + offset)
+            idxs.append(16 + offset)
+    return idxs
+
+
+def pair_piece_features(board):
+    idxs = []
+    for piece in range(2, 5):
+        for side in range(2):
+            squares = list(board.pieces(piece, side))[:2]
+            for i, square in enumerate(squares):
+                rank = int(square / 8)
+                file = square % 8
+
+                if piece == 3:  # select bishop slot based on square color
+                    slot = square % 2
+                else:
+                    slot = i
+
+                offset = 17 * 8 + slot * 17 + (piece - 2) * 34 + side * 272
+                idxs.append(file + offset)
+                idxs.append(rank + 8 + offset)
+                idxs.append(16 + offset)
+    return idxs
+
+
+def king_queen_features(board):
+    idxs = []
+    for piece in range(5, 7):
+        for side in range(2):
+            squares = list(board.pieces(piece, side))
+            for square in squares[:1]:
+                rank = int(square / 8)
+                file = square % 8
+                offset = 17 * 14 + (piece - 5) * 17 + side * 272
+                idxs.append(file + offset)
+                idxs.append(rank + 8 + offset)
+                idxs.append(16 + offset)
+    return idxs
+
+
+def ep_target_feature(board):
+    ep_square = board.ep_square
+    file = ep_square % 8
+    offset = board.turn * 8
+    return file + offset

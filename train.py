@@ -8,7 +8,7 @@ import time
 def main():
     env = TicTacToeEnv()
     network = ValueModel(env.get_feature_vector_size())
-    agent = EpsilonGreedyAgent('agent_0', network, env)
+    agent = EpsilonGreedyAgent('agent_0', network, env, verbose=True)
     summary_op = tf.summary.merge_all()
     log_dir = "./log/" + str(int(time.time()))
 
@@ -18,7 +18,7 @@ def main():
 
         for i in range(10000000):
             if i % 1000 == 0:
-                agent.test(None)
+                agent.random_agent_test()
             agent.train()
 
 if __name__ == "__main__":

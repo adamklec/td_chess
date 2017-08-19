@@ -3,6 +3,7 @@ import numpy as np
 from agents.agent_base import AgentBase
 import random
 
+
 class EpsilonGreedyAgent(AgentBase):
     def __init__(self,
                  name,
@@ -11,7 +12,7 @@ class EpsilonGreedyAgent(AgentBase):
                  verbose=False):
         super().__init__(name, model, env, verbose)
 
-        tvars = self.model.trainable_variables()
+        tvars = self.model.trainable_variables
         # grads = tf.gradients([self.model.value], tvars)
         trainer = tf.train.AdamOptimizer()
         grad_vars = trainer.compute_gradients(self.model.value, tvars)
@@ -115,6 +116,12 @@ class EpsilonGreedyAgent(AgentBase):
             return move, value
         else:
             return move
+
+    def get_move_function(self, depth):
+        def m(env):
+            move = self.get_move(env)
+            return move
+        return m
 
 
 def convert_string_result(string):

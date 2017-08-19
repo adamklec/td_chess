@@ -51,16 +51,14 @@ class TDLeafAgent(AgentBase):
 
         turn_count = 0
         while self.env.get_reward() is None and turn_count < 10:
-            feature_vector = self.env.make_feature_vector(self.env.board)
-            grad_vars, value = self.sess.run([self.grad_vars, self.model.value],
-                                             feed_dict={self.model.feature_vector_: feature_vector})
+            move, leaf_value, leaf_node = self.get_move(self.env, depth=depth, return_value_node=True)
+            value_seq.append(leaf_value)
 
+            feature_vector = self.env.make_feature_vector(leaf_node.board)
+            grad_vars = self.sess.run(self.grad_vars, feed_dict={self.model.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
-
-            value_seq.append(value)
             grads_seq.append(grads)
 
-            move = self.get_move(self.env, depth=depth)
             selected_moves.append(move)
             self.env.make_move(move)
 
