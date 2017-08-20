@@ -146,7 +146,7 @@ class TDLeafAgent(AgentBase):
             else:
                 return -value, node
 
-        elif (depth <= 0 and self.env.is_quiet(node.board)): # or depth < -10:
+        elif (depth <= 0 and self.env.is_quiet(node.board)) or depth < -15:
             # print(depth)
             # print(node.path[0].board.fen())
             # print([node.move for node in node.path])
