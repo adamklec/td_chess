@@ -16,7 +16,7 @@ class TDLeafAgent(AgentBase):
         self.ttable = dict()
 
         with tf.variable_scope('grad_accums'):
-            self.grad_accums = [tf.Variable(tf.zeros_like(tvar, name=tvar.op.name), trainable=False)
+            self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name)
                                 for tvar in self.model.trainable_variables]
             self.grad_accum_s = [tf.placeholder(tf.float32, tvar.get_shape()) for tvar in self.model.trainable_variables]
 

@@ -29,9 +29,8 @@ def work(env, job_name, task_index, cluster, log_dir):
                                 network,
                                 env,
                                 verbose=True)
-            with tf.variable_scope('episode_count'):
-                global_episode_count = tf.train.get_or_create_global_step()
-                increment_global_episode_count_op = global_episode_count.assign_add(1)
+            global_episode_count = tf.train.get_or_create_global_step()
+            increment_global_episode_count_op = global_episode_count.assign_add(1)
             summary_op = tf.summary.merge_all()
 
         with tf.train.MonitoredTrainingSession(master=server.target,
@@ -53,7 +52,7 @@ def work(env, job_name, task_index, cluster, log_dir):
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(4)]
-    worker_hosts = ['localhost:' + str(3333 + i) for i in range(44)]
+    worker_hosts = ['localhost:' + str(3333 + i) for i in range(60)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
