@@ -29,22 +29,27 @@ def work(env, job_name, task_index, cluster, log_dir):
                                 network,
                                 env,
                                 verbose=True)
-
+            with tf.variable_scope('episode_count'):
+                global_episode_count = tf.train.get_or_create_global_step()
+                increment_global_episode_count_op = global_episode_count.assign_add(1)
             summary_op = tf.summary.merge_all()
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=(task_index == 0 and job_name == 'worker'),
                                                checkpoint_dir=log_dir,
-                                               save_summaries_steps=10,
+                                               save_summaries_steps=100,
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
             agent.sess = sess
 
             if job_name == "worker":
                 while not sess.should_stop():
-                    if (sess.run(agent.global_episode_count) - task_idx) % 1000 == 0 and task_idx < 14:
+                    sess.run(increment_global_episode_count_op)
+                    episode_count = sess.run(agent.global_episode_count)
+                    if (episode_count - task_idx - 1) % 1000 == 0 and task_idx < 14:
                         agent.test(task_idx, depth=1)
                     else:
                         agent.train(depth=1)
+
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(4)]
@@ -66,6 +71,7 @@ if __name__ == "__main__":
         p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir,))
         processes.append(p)
         p.start()
+        time.sleep(.5)
 
     for process in processes:
         process.join()

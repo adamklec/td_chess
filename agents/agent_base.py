@@ -16,9 +16,8 @@ class AgentBase(metaclass=ABCMeta):
             for tvar in self.model.trainable_variables:
                 tf.summary.histogram(tvar.op.name, tvar)
 
-            self.global_episode_count = tf.train.get_or_create_global_step()
             with tf.variable_scope('episode_count'):
-                self.increment_global_episode_count_op = self.global_episode_count.assign_add(1)
+                self.global_episode_count = tf.train.get_or_create_global_step()
 
             self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
             self.test_result_ = tf.placeholder(tf.int32, name='test_result_')
@@ -74,7 +73,6 @@ class AgentBase(metaclass=ABCMeta):
         return NotImplemented
 
     def test(self, test_idx, depth=1):
-        self.sess.run(self.increment_global_episode_count_op)
         result = self.env.test(self.get_move_function(depth=depth), test_idx, verbose=self.verbose)
         self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
                                                            self.test_result_: result})
@@ -87,7 +85,6 @@ class AgentBase(metaclass=ABCMeta):
                   "TOTAL:", sum(test_results))
             print(test_results)
             print('-' * 100)
-
 
     def random_agent_test(self, depth=1):
         result = self.env.random_agent_test(self.get_move_function(depth))

@@ -14,14 +14,19 @@ def main():
     summary_op = tf.summary.merge_all()
     log_dir = "./log/" + str(int(time.time()))
 
+    with tf.variable_scope('episode_count'):
+        global_episode_count = tf.train.get_or_create_global_step()
+        increment_global_episode_count_op = global_episode_count.assign_add(1)
+
     with tf.train.MonitoredTrainingSession(checkpoint_dir=log_dir,
                                            scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
         agent.sess = sess
 
         for i in range(10000000):
+            sess.run(increment_global_episode_count_op)
             if i % 100 == 0:
-                agent.random_agent_test(depth=3)
-            agent.train(depth=3)
+                agent.random_agent_test(depth=1)
+            agent.train(depth=1)
 
 if __name__ == "__main__":
     main()
