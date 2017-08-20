@@ -2,7 +2,7 @@ import tensorflow as tf
 
 
 class ValueModel(object):
-    def __init__(self, input_dim, hidden_dim=100):
+    def __init__(self, input_dim, hidden_dim=1000):
 
         with tf.variable_scope('neural_network'):
             self.feature_vector_ = tf.placeholder(tf.float32, shape=[None, input_dim], name='feature_vector_')
