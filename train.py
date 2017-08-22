@@ -2,15 +2,21 @@ import tensorflow as tf
 from agents.epsilon_greedy_agent import EpsilonGreedyAgent
 from agents.td_leaf_agent import TDLeafAgent
 from envs.tic_tac_toe import TicTacToeEnv
+from envs.chess import ChessEnv
 from value_model import ValueModel
+from chess_value_model import ChessValueModel
 import time
 
 
 def main():
-    env = TicTacToeEnv()
-    network = ValueModel(env.get_feature_vector_size())
+    # env = TicTacToeEnv()
+    # network = ValueModel(env.get_feature_vector_size())
     # agent = EpsilonGreedyAgent('agent_0', network, env, verbose=True)
+
+    env = ChessEnv(load_tests=True)
+    network = ChessValueModel()
     agent = TDLeafAgent('agent_0', network, env, verbose=True)
+
     summary_op = tf.summary.merge_all()
     log_dir = "./log/" + str(int(time.time()))
 
@@ -24,7 +30,9 @@ def main():
         for i in range(10000000):
             sess.run(increment_global_episode_count_op)
             if i % 100 == 0:
-                agent.random_agent_test(depth=1)
+                # agent.random_agent_test(depth=2)
+                # agent.test(0, depth=2)
+                pass
             agent.train(depth=1)
 
 if __name__ == "__main__":

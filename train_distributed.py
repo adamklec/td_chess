@@ -23,6 +23,7 @@ def work(env, job_name, task_index, cluster, log_dir):
 
             # fv_size = env.get_feature_vector_size()
             # network = ValueModel(fv_size)
+
             network = ChessValueModel()
             agent_name = 'worker_' + str(task_index)
             agent = TDLeafAgent(agent_name,
