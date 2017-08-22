@@ -78,7 +78,7 @@ class TDLeafAgent(AgentBase):
         self.sess.run(self.update_grad_accums, feed_dict={grad_accum_: grad_accum
                                                           for grad_accum_, grad_accum in zip(self.grad_accum_s,
                                                                                              grad_accums)})
-        if global_episode_count % 10 == 0:
+        if global_episode_count % 100 == 0:
             print('EPISODE:', global_episode_count, "updating model")
 
             self.sess.run(self.apply_grads, feed_dict={grad_: grad_accum
