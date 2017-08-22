@@ -24,7 +24,7 @@ class ChessValueModel:
 
             simple_hidden = tf.matmul(1-self.feature_vector_, simple_value_weights)
 
-            self.value = tf.tanh((simple_hidden) / 5.0)
+            self.value = tf.tanh((simple_hidden + self.hidden) / 5.0)
             self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                          scope=tf.get_variable_scope().name)
 
