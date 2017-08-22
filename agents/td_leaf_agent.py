@@ -85,10 +85,10 @@ class TDLeafAgent(AgentBase):
                                                        for grad_, grad_accum in zip(self.grad_s, grad_accums)})
             self.sess.run(self.reset_grad_accums)
 
-        if self.verbose:
-            print("global episode:", global_episode_count,
-                  self.name,
-                  'reward:', self.env.get_reward())
+        # if self.verbose:
+        #     print("global episode:", global_episode_count,
+        #           self.name,
+        #           'reward:', self.env.get_reward())
 
         selected_moves_string = ','.join([str(m) for m in selected_moves])
 
