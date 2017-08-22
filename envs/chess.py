@@ -212,7 +212,7 @@ class ChessEnv(GameEnvBase):
     #         fen = '/'.join([8 * piece for _ in range(8)]) + ' w - - 0 1'
     #         board = chess.Board(fen)
     #         W_1[cls.make_feature_vector(board)[0] == 1, 0] = value
-    #         W_1[-5:] = 0
+    #     W_1[-5:] = 0
     #     return W_1
 
     @classmethod
@@ -349,7 +349,7 @@ def pair_piece_features(board, side):
             file = square % 8
 
             if piece == 3:  # select bishop slot based on square color
-                slot = square % 2 + (piece - 2) * 2
+                slot = (file + rank % 2) % 2 + (piece - 2) * 2
             else:
                 slot = i + (piece - 2) * 2
             min_attacker = min_attacker_value(board, square, not side)
