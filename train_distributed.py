@@ -46,14 +46,14 @@ def work(env, job_name, task_index, cluster, log_dir):
                     sess.run(increment_global_episode_count_op)
                     episode_count = sess.run(agent.global_episode_count)
                     if (episode_count - 1) % 2000 < 14:
-                        agent.test((episode_count - 1) % 1000, depth=3)
+                        agent.test((episode_count - 1) % 1000, depth=2)
                     else:
-                        agent.train(depth=3)
+                        agent.train(depth=2)
 
 
 if __name__ == "__main__":
-    ps_hosts = ['localhost:' + str(2222 + i) for i in range(6)]
-    worker_hosts = ['localhost:' + str(3333 + i) for i in range(48)]
+    ps_hosts = ['localhost:' + str(2222 + i) for i in range(10)]
+    worker_hosts = ['localhost:' + str(3333 + i) for i in range(40)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
