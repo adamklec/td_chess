@@ -14,19 +14,6 @@ class TDLeafAgent(AgentBase):
 
         super().__init__(name, model, env, verbose)
 
-        # with tf.variable_scope('grad_accums'):
-        #     self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name)
-        #                         for tvar in self.model.trainable_variables]
-        #     self.grad_accum_s = [tf.placeholder(tf.float32, tvar.get_shape()) for tvar in self.model.trainable_variables]
-        #
-        #     self.reset_grad_accums = [tf.assign(grad_accum, tf.zeros_like(tvar))
-        #                               for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
-        #     self.update_grad_accums = [tf.assign_add(grad_accum, grad_accum_)
-        #                                for grad_accum, grad_accum_ in zip(self.grad_accums, self.grad_accum_s)]
-        #
-        #     for grad_accum in self.grad_accums:
-        #         tf.summary.histogram(grad_accum.op.name, grad_accum)
-
         if opt is None:
             self.opt = tf.train.AdamOptimizer()
         else:
