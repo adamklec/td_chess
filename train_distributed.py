@@ -24,36 +24,40 @@ def work(env, job_name, task_index, cluster, log_dir):
             # fv_size = env.get_feature_vector_size()
             # network = ValueModel(fv_size)
 
+            opt = tf.train.AdamOptimizer()
+            opt = tf.train.SyncReplicasOptimizer(opt, 1000, use_locking=True)
+
             network = ChessValueModel()
             agent_name = 'worker_' + str(task_index)
             agent = TDLeafAgent(agent_name,
                                 network,
                                 env,
+                                opt=opt,
                                 verbose=True)
-            global_episode_count = tf.train.get_or_create_global_step()
-            increment_global_episode_count_op = global_episode_count.assign_add(1)
             summary_op = tf.summary.merge_all()
+            is_chief = task_index == 0 and job_name == 'worker'
+            sync_replicas_hook = opt.make_session_run_hook(is_chief)
 
         with tf.train.MonitoredTrainingSession(master=server.target,
-                                               is_chief=(task_index == 0 and job_name == 'worker'),
+                                               is_chief=is_chief,
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=100,
+                                               hooks=[sync_replicas_hook],
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
             agent.sess = sess
 
             if job_name == "worker":
                 while not sess.should_stop():
-                    sess.run(increment_global_episode_count_op)
-                    episode_count = sess.run(agent.global_episode_count)
+                    sess.run(agent.increment_episode_count)
+                    episode_count = sess.run(agent.episode_count)
                     if (episode_count - 1) % 2000 < 14:
-                        agent.test((episode_count - 1) % 1000, depth=2)
+                        agent.test((episode_count - 1) % 1000, depth=1)
                     else:
-                        agent.train(depth=2)
-
+                        agent.train(depth=1)
 
 if __name__ == "__main__":
-    ps_hosts = ['localhost:' + str(2222 + i) for i in range(10)]
-    worker_hosts = ['localhost:' + str(3333 + i) for i in range(40)]
+    ps_hosts = ['localhost:' + str(2222 + i) for i in range(1)]
+    worker_hosts = ['localhost:' + str(3333 + i) for i in range(60)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 

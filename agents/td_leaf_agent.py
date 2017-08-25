@@ -9,36 +9,38 @@ class TDLeafAgent(AgentBase):
                  name,
                  model,
                  env,
+                 opt=None,
                  verbose=False):
 
         super().__init__(name, model, env, verbose)
 
-        with tf.variable_scope('grad_accums'):
-            self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name)
-                                for tvar in self.model.trainable_variables]
-            self.grad_accum_s = [tf.placeholder(tf.float32, tvar.get_shape()) for tvar in self.model.trainable_variables]
+        # with tf.variable_scope('grad_accums'):
+        #     self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name)
+        #                         for tvar in self.model.trainable_variables]
+        #     self.grad_accum_s = [tf.placeholder(tf.float32, tvar.get_shape()) for tvar in self.model.trainable_variables]
+        #
+        #     self.reset_grad_accums = [tf.assign(grad_accum, tf.zeros_like(tvar))
+        #                               for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
+        #     self.update_grad_accums = [tf.assign_add(grad_accum, grad_accum_)
+        #                                for grad_accum, grad_accum_ in zip(self.grad_accums, self.grad_accum_s)]
+        #
+        #     for grad_accum in self.grad_accums:
+        #         tf.summary.histogram(grad_accum.op.name, grad_accum)
 
-            self.reset_grad_accums = [tf.assign(grad_accum, tf.zeros_like(tvar))
-                                      for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
-            self.update_grad_accums = [tf.assign_add(grad_accum, grad_accum_)
-                                       for grad_accum, grad_accum_ in zip(self.grad_accums, self.grad_accum_s)]
+        if opt is None:
+            self.opt = tf.train.AdamOptimizer()
+        else:
+            self.opt = opt
 
-            for grad_accum in self.grad_accums:
-                tf.summary.histogram(grad_accum.op.name, grad_accum)
-
-        self.trainer = tf.train.AdamOptimizer()
-
-        self.lamda = .7
-
-        self.grad_vars = self.trainer.compute_gradients(self.model.value, self.model.trainable_variables)
+        self.grad_vars = self.opt.compute_gradients(self.model.value, self.model.trainable_variables)
         self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER')
                        for var in self.model.trainable_variables]
-        self.apply_grads = self.trainer.apply_gradients(zip(self.grad_s,
-                                                            self.model.trainable_variables),
-                                                        name='apply_grads')
+        self.apply_grads = self.opt.apply_gradients(zip(self.grad_s,
+                                                        self.model.trainable_variables),
+                                                    name='apply_grads', global_step=self.update_count)
 
     def train(self, depth=1):
-        global_episode_count = self.sess.run(self.global_episode_count)
+        global_episode_count = self.sess.run(self.episode_count)
         lamda = 0.7
         self.env.random_position()
         self.ttable = dict()
@@ -48,20 +50,25 @@ class TDLeafAgent(AgentBase):
 
         value_seq = []
         grads_seq = []
+        traces = [np.zeros_like(tvar) for tvar in self.model.trainable_variables]
 
         turn_count = 0
+
         while self.env.get_reward() is None and turn_count < 10:
             move, leaf_value, leaf_node = self.get_move(self.env, depth=depth, return_value_node=True)
             value_seq.append(leaf_value)
-
             feature_vector = self.env.make_feature_vector(leaf_node.board)
             grad_vars = self.sess.run(self.grad_vars, feed_dict={self.model.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
             grads_seq.append(grads)
 
-            selected_moves.append(move)
-            self.env.make_move(move)
+            if turn_count > 0:
+                delta = value_seq[-2] - value_seq[-1]
+                traces = [trace * lamda + grad for trace, grad in zip(traces, grads)]
+                self.sess.run(self.apply_grads, feed_dict={grad_: -delta * trace
+                                                           for grad_, trace in zip(self.grad_s, traces)})
 
+            self.env.make_move(move)
             turn_count += 1
 
             new_killers = dict()
@@ -74,31 +81,12 @@ class TDLeafAgent(AgentBase):
             for key, row in self.ttable.items():
                 row['depth'] = row['depth'] + 1
                 self.ttable[key] = row
-
-        deltas = [value_seq[i+1] - value_seq[i] for i in range(len(value_seq) - 1)]
-        grad_accums = [np.zeros_like(grad) for grad in grads_seq[0]]
-
-        for t in range(len(deltas)):
-            grads = grads_seq[t]
-            inner = sum([lamda ** (j - t) * deltas[j] for j in range(t, len(deltas))])
-
-            for i in range(len(grads)):
-                grad_accums[i] -= grads[i] * inner  # subtract for gradient ascent
-
-        self.sess.run(self.update_grad_accums, feed_dict={grad_accum_: grad_accum
-                                                          for grad_accum_, grad_accum in zip(self.grad_accum_s,
-                                                                                             grad_accums)})
-        if global_episode_count % 100 == 0:
-            print('EPISODE:', global_episode_count, "updating model")
-
-            self.sess.run(self.apply_grads, feed_dict={grad_: grad_accum
-                                                       for grad_, grad_accum in zip(self.grad_s, grad_accums)})
-            self.sess.run(self.reset_grad_accums)
-
-        # if self.verbose:
-        #     print("global episode:", global_episode_count,
-        #           self.name,
-        #           'reward:', self.env.get_reward())
+        global_update_count = self.sess.run(self.update_count)
+        if self.verbose:
+            print("global episode:", global_episode_count,
+                  "update:", global_update_count,
+                  self.name,
+                  'reward:', self.env.get_reward())
 
         selected_moves_string = ','.join([str(m) for m in selected_moves])
 

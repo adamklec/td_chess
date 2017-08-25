@@ -34,7 +34,7 @@ def main():
             #     agent.test(0, depth=3)
             #     # pass
             t0 = time.time()
-            agent.train(depth=4)
+            agent.train(depth=2)
             print(time.time() - t0)
 if __name__ == "__main__":
     main()

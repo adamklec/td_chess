@@ -18,7 +18,9 @@ class AgentBase(metaclass=ABCMeta):
             for tvar in self.model.trainable_variables:
                 tf.summary.histogram(tvar.op.name, tvar)
 
-            self.global_episode_count = tf.train.get_or_create_global_step()
+            self.update_count = tf.train.get_or_create_global_step()
+            self.episode_count = tf.Variable(0, trainable=False)
+            self.increment_episode_count = tf.assign_add(self.episode_count, 1, use_locking=True)
 
             self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
             self.test_result_ = tf.placeholder(tf.int32, name='test_result_')
@@ -80,7 +82,7 @@ class AgentBase(metaclass=ABCMeta):
         self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
                                                            self.test_result_: result})
         test_results = self.sess.run(self.test_results)
-        global_episode_count = self.sess.run(self.global_episode_count)
+        global_episode_count = self.sess.run(self.update_count)
         if self.verbose:
             print("EPISODE:", global_episode_count, "TEST",
                   "STS#:", test_idx + 1,
@@ -94,7 +96,7 @@ class AgentBase(metaclass=ABCMeta):
         for update_op, result in zip(self.update_random_agent_test_results, result):
             self.sess.run(update_op, feed_dict={self.test_result_: result})
 
-        global_episode_count = self.sess.run(self.global_episode_count)
+        global_episode_count = self.sess.run(self.update_count)
 
         if self.verbose:
             print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")

@@ -53,7 +53,7 @@ class EpsilonGreedyAgent(AgentBase):
                                                            for trace, tvar in zip(traces, tvars)])
 
     def train(self, epsilon=.05):
-        global_episode_count = self.sess.run(self.global_episode_count)
+        global_episode_count = self.sess.run(self.update_count)
         self.sess.run(self.increment_global_episode_count_op)
 
         starting_position_move_str = ','.join([str(m) for m in self.env.get_move_stack()])
