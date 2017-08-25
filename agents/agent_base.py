@@ -11,6 +11,8 @@ class AgentBase(metaclass=ABCMeta):
         self.env = env
         self.verbose = verbose
         self.sess = None
+        self.killers = dict()
+        self.ttable = dict()
 
         if self.model is not None:
             for tvar in self.model.trainable_variables:
@@ -72,6 +74,8 @@ class AgentBase(metaclass=ABCMeta):
         return NotImplemented
 
     def test(self, test_idx, depth=1):
+        self.killers = dict()
+        self.ttable = dict()
         result = self.env.test(self.get_move_function(depth=depth), test_idx, verbose=self.verbose)
         self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
                                                            self.test_result_: result})

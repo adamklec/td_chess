@@ -13,9 +13,6 @@ class TDLeafAgent(AgentBase):
 
         super().__init__(name, model, env, verbose)
 
-        self.ttable = dict()
-        self.killers = dict()
-
         with tf.variable_scope('grad_accums'):
             self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name)
                                 for tvar in self.model.trainable_variables]
@@ -45,6 +42,7 @@ class TDLeafAgent(AgentBase):
         lamda = 0.7
         self.env.random_position()
         self.ttable = dict()
+        self.killers = dict()
         starting_position_move_str = ','.join([str(m) for m in self.env.get_move_stack()])
         selected_moves = []
 
@@ -65,6 +63,17 @@ class TDLeafAgent(AgentBase):
             self.env.make_move(move)
 
             turn_count += 1
+
+            new_killers = dict()
+            for killer_depth, killer_list in self.killers.items():
+                if killer_depth + 1 < depth:
+                    new_killers[killer_depth + 1] = killer_list
+            self.killers = new_killers
+
+            self.ttable = {key: row for key, row in self.ttable.items() if row['depth'] + 1 < depth}
+            for key, row in self.ttable.items():
+                row['depth'] = row['depth'] + 1
+                self.ttable[key] = row
 
         deltas = [value_seq[i+1] - value_seq[i] for i in range(len(value_seq) - 1)]
         grad_accums = [np.zeros_like(grad) for grad in grads_seq[0]]
@@ -97,7 +106,6 @@ class TDLeafAgent(AgentBase):
             move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
 
     def get_move(self, env, depth=3, return_value_node=False):
-        self.ttable = dict()
         node = Node('root', board=env.board, move=env.get_null_move())
         leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.model.value_function(self.sess))
         if len(leaf_node.path) > 1:
