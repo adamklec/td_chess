@@ -24,7 +24,7 @@ def work(env, job_name, task_index, cluster, log_dir):
             # fv_size = env.get_feature_vector_size()
             # network = ValueModel(fv_size)
 
-            opt = tf.train.AdamOptimizer()
+            opt = tf.train.AdamOptimizer(use_locking=True)
             opt = tf.train.SyncReplicasOptimizer(opt, 1000, use_locking=True)
 
             network = ChessValueModel()
@@ -43,7 +43,10 @@ def work(env, job_name, task_index, cluster, log_dir):
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=1,
                                                hooks=[sync_replicas_hook],
-                                               scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
+                                               scaffold=tf.train.Scaffold(summary_op=summary_op),
+                                               config=tf.ConfigProto(operation_timeout_in_ms=2000,
+                                                                     inter_op_parallelism_threads=500,
+                                                                     intra_op_parallelism_threads=1)) as sess:
             agent.sess = sess
 
             if job_name == "worker":
