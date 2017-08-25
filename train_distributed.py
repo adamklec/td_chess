@@ -44,7 +44,7 @@ def work(env, job_name, task_index, cluster, log_dir):
                                                save_summaries_steps=1,
                                                hooks=[sync_replicas_hook],
                                                scaffold=tf.train.Scaffold(summary_op=summary_op),
-                                               config=tf.ConfigProto(operation_timeout_in_ms=2000,
+                                               config=tf.ConfigProto(operation_timeout_in_ms=30000,
                                                                      inter_op_parallelism_threads=500,
                                                                      intra_op_parallelism_threads=1)) as sess:
             agent.sess = sess
