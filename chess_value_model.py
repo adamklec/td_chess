@@ -14,17 +14,20 @@ class ChessValueModel:
 
             self.feature_vector_ = tf.placeholder(tf.float32, shape=[None, fv_size], name='feature_vector_')
             with tf.variable_scope('layer_1'):
-                W_1 = tf.get_variable('W_1', initializer=tf.truncated_normal([fv_size, 500], stddev=0.01))
-                self.simple_learned = tf.matmul(self.feature_vector_, W_1)
-                hidden = tf.nn.relu(tf.matmul(self.feature_vector_, W_1), name='hidden')
+                W_1 = tf.get_variable('W_1', initializer=tf.truncated_normal([fv_size, 200], stddev=0.01))
+                hidden_1 = tf.nn.relu(tf.matmul(self.feature_vector_, W_1), name='hidden')
 
             with tf.variable_scope('layer_2'):
-                W_2 = tf.get_variable('W_2', initializer=tf.truncated_normal([500, 1], stddev=0.01))
-                self.hidden = tf.matmul(hidden, W_2)
+                W_2 = tf.get_variable('W_2', initializer=tf.truncated_normal([200, 100], stddev=0.01))
+                hidden_2 = tf.nn.relu(tf.matmul(hidden_1, W_2), name='hidden')
 
-            simple_hidden = tf.matmul(1-self.feature_vector_, simple_value_weights)
+            with tf.variable_scope('layer_3'):
+                W_3 = tf.get_variable('W_3', initializer=tf.truncated_normal([100, 1], stddev=0.01))
+                hidden_3 = tf.matmul(hidden_2, W_3)
 
-            self.value = tf.tanh((simple_hidden + self.hidden) / 5.0)
+            simple_value = tf.matmul(1-self.feature_vector_, simple_value_weights)
+
+            self.value = tf.tanh((simple_value + hidden_3) / 5.0)
             self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                          scope=tf.get_variable_scope().name)
 

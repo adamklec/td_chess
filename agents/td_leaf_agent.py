@@ -14,6 +14,7 @@ class TDLeafAgent(AgentBase):
         super().__init__(name, model, env, verbose)
 
         self.ttable = dict()
+        self.killers = dict()
 
         with tf.variable_scope('grad_accums'):
             self.grad_accums = [tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name)
@@ -143,7 +144,7 @@ class TDLeafAgent(AgentBase):
             else:
                 return -value, node
 
-        elif (depth <= 0 and self.env.is_quiet(node.board)):  # or depth < -15:
+        elif (depth <= 0 and self.env.is_quiet(node.board, depth)):  # or depth < -15:
             # print(depth)
             # print(node.path[0].board.fen())
             # print([node.move for node in node.path])
@@ -157,6 +158,22 @@ class TDLeafAgent(AgentBase):
             else:
                 return -value, node
 
+        elif depth < 0:
+            # self.eval_count += 1
+            fv = self.env.make_feature_vector(node.board)
+            value = value_function(fv)
+            tt_row = {'value': value, 'flag': 'EXACT', 'depth': depth}
+            self.ttable[hash_key] = tt_row
+            if node.board.turn:
+                flipped_value = value
+                flipped_alpha = alpha
+            else:
+                flipped_value = -value
+                flipped_alpha = -alpha
+            if flipped_value + .95 < flipped_alpha:
+                # self.futile_count += 1
+                return alpha, node
+
         children = []
         for move in node.board.legal_moves:
             child_board = node.board.copy()
@@ -164,8 +181,7 @@ class TDLeafAgent(AgentBase):
             child = Node(str(move), parent=node, board=child_board, move=move)
             children.append(child)
 
-        # children = sorted(children, key=lambda child: self.env.move_order_key(child.board, self.ttable))
-        children = self.env.sort_children(node, children, self.ttable)
+        children = self.env.sort_children(node, children, self.ttable, self.killers.get(depth, []) + self.killers.get(depth-2, []))
         v = -100000
         n = node
         for child in children:
@@ -176,6 +192,10 @@ class TDLeafAgent(AgentBase):
                 n = nn
             alpha = max(alpha, vv)
             if alpha >= beta:
+                if self.killers.get(depth) is None:
+                    self.killers[depth] = [child.move, None]
+                else:
+                    self.killers[depth] = [child.move, self.killers[depth][0]]
                 break
 
         if tt_row is None:

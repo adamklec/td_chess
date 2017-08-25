@@ -53,11 +53,7 @@ class GameEnvBase(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def is_quiet(board):
-        return NotImplemented
-
-    @staticmethod
-    def move_order_key(board, ttable):
+    def is_quiet(board, depth):
         return NotImplemented
 
     @abstractmethod
@@ -69,7 +65,7 @@ class GameEnvBase(metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
-    def sort_children(self, parent, children, ttable):
+    def sort_children(self, parent, children, ttable, killers):
         return NotImplemented
 
     def play_random(self, get_move_function, side):

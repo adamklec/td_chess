@@ -118,12 +118,16 @@ class ChessEnv(GameEnvBase):
         return fv
 
     @staticmethod
-    def is_quiet(board):
+    def is_quiet(board, depth):
         parent_board = board.copy()
         move = parent_board.pop()
 
-        # is_check = board.is_check()
-        # parent_is_check = parent_board.is_check()
+        if depth > -2:
+            is_check = board.is_check()
+            parent_is_check = parent_board.is_check()
+        else:
+            is_check = False
+            parent_is_check = False
 
         if parent_board.is_capture(move) and not parent_board.is_en_passant(move):
             capturing_piece_type = parent_board.piece_type_at(move.from_square)
@@ -134,46 +138,29 @@ class ChessEnv(GameEnvBase):
 
         is_promotion = move.promotion is not None
 
-        return not (is_losing_capture or is_promotion)
+        return not (is_losing_capture or is_promotion or is_check or parent_is_check)
 
-    @staticmethod
-    def move_order_key(board, ttable):
-        parent_board = board.copy()
-        move = parent_board.pop()
-
-        tt_row = ttable.get(board.fen())
-        if tt_row is not None:
-            if tt_row['flag'] == 'EXACT':
-                return 0
-            if tt_row['flag'] == 'LOWERBOUND':
-                return 1
-        if parent_board.is_capture(move):
-            return 2
-        else:
-            return 3
-
-    def sort_children(self, parent, children, ttable):
-        exact_tt_moves = []
-        lower_tt_moves = []
+    def sort_children(self, parent, children, ttable, killers):
+        hashed_nodes = []
+        in_killers = []
         captures = []
         others = []
 
         tt_row = ttable.get(parent.board.fen())
         for child in children:
             if tt_row is not None:
-                if tt_row['flag'] == 'EXACT':
-                    exact_tt_moves.append(child)
-                    return 0
-                if tt_row['flag'] == 'LOWERBOUND':
-                    lower_tt_moves.append(child)
-                    return 1
+                hashed_nodes.append(child.move)
+            elif child.move in killers:
+                in_killers.append(child)
             elif parent.board.is_capture(child.move):
                 captures.append(child)
+
             else:
                 others.append(child)
 
         captures = sorted(captures, key=lambda node: self.mmv_lva(node.parent.board, node.move))
-        return exact_tt_moves + lower_tt_moves + captures + others
+        hashed_nodes = sorted(hashed_nodes, key=lambda node: ttable[self.zobrist_hash(node.board)]['value'], reverse=not parent.board.turn)
+        return hashed_nodes + in_killers + captures + others
 
     @staticmethod
     def mmv_lva(board, move):

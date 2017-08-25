@@ -48,7 +48,7 @@ class TicTacToeEnv(GameEnvBase):
     def zobrist_hash(self, board):
         return board.fen()
 
-    def sort_children(self, parent, children, ttable):
+    def sort_children(self, parent, children, ttable, killers):
         return children
 
     @classmethod
@@ -108,12 +108,8 @@ class TicTacToeEnv(GameEnvBase):
         return 28
 
     @staticmethod
-    def is_quiet(board):
+    def is_quiet(board, depth):
         return True
-
-    @staticmethod
-    def move_order_key(board, ttable):
-        return 0
 
 
 class TicTacToeBoard(BoardBase):
