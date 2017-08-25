@@ -19,7 +19,8 @@ def main():
         sess.run(tf.global_variables_initializer())
 
         # cProfile.runctx('agent.test(sess, test_idxs=[0], depth=3)', globals(), locals())
-        agent.test(9, depth=1)
+        # for i in range(14):
+        agent.test(10, depth=3)
         test_results = sess.run(agent.test_results)
         print(sum(test_results))
 

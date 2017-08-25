@@ -27,13 +27,14 @@ def main():
                                            scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
         agent.sess = sess
 
-        for i in range(10000000):
+        for i in range(10):
             sess.run(increment_global_episode_count_op)
-            if i % 100 == 0:
-                # agent.random_agent_test(depth=2)
-                # agent.test(0, depth=2)
-                pass
-            agent.train(depth=1)
-
+            # if i % 2 == 1:
+            #     # agent.random_agent_test(depth=2)
+            #     agent.test(0, depth=3)
+            #     # pass
+            t0 = time.time()
+            agent.train(depth=4)
+            print(time.time() - t0)
 if __name__ == "__main__":
     main()
