@@ -52,8 +52,9 @@ def work(env, job_name, task_index, cluster, log_dir):
                 while not sess.should_stop():
                     sess.run(agent.increment_episode_count)
                     episode_count = sess.run(agent.episode_count)
-                    if (episode_count - 1) % 2000 < 14:
-                        agent.test((episode_count - 1) % 1000, depth=2)
+                    test_idx = (episode_count - 1) % 2000
+                    if test_idx < 14:
+                        agent.test(test_idx, depth=2)
                     else:
                         agent.train(depth=2)
 
