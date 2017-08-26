@@ -50,7 +50,7 @@ class TDLeafAgent(AgentBase):
             grads_seq.append(grads)
 
             if turn_count > 0:
-                delta = value_seq[-2] - value_seq[-1]
+                delta = value_seq[-1] - value_seq[-2]
                 traces = [trace * lamda + grad for trace, grad in zip(traces, grads)]
                 self.sess.run(self.apply_grads, feed_dict={grad_: -delta * trace
                                                            for grad_, trace in zip(self.grad_s, traces)})
