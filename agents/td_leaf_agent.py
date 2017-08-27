@@ -30,10 +30,11 @@ class TDLeafAgent(AgentBase):
         global_episode_count = self.sess.run(self.episode_count)
         lamda = 0.7
         self.env.random_position()
+        # self.env.set_board(chess.Board("1k2r3/1p1bP3/2p2p1Q/Ppb5/4Rp1P/2q2N1P/5PB1/6K1 b - - 0 1"))
         self.ttable = dict()
         self.killers = dict()
-        starting_position_move_str = ','.join([str(m) for m in self.env.get_move_stack()])
-        selected_moves = []
+        # starting_position_move_str = ','.join([str(m) for m in self.env.get_move_stack()])
+        # selected_moves = []
 
         value_seq = []
         grads_seq = []
@@ -47,7 +48,7 @@ class TDLeafAgent(AgentBase):
             feature_vector = self.env.make_feature_vector(leaf_node.board)
             grad_vars = self.sess.run(self.grad_vars, feed_dict={self.model.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
-            grads_seq.append(grads)
+            grads_seq.append(grads[-2])
 
             if turn_count > 0:
                 delta = value_seq[-1] - value_seq[-2]
@@ -70,15 +71,15 @@ class TDLeafAgent(AgentBase):
                 self.ttable[key] = row
         global_update_count = self.sess.run(self.update_count)
         if self.verbose:
-            print("global episode:", global_episode_count,
+            print("episode:", global_episode_count,
                   "update:", global_update_count,
                   self.name,
                   'reward:', self.env.get_reward())
 
-        selected_moves_string = ','.join([str(m) for m in selected_moves])
+        # selected_moves_string = ','.join([str(m) for m in selected_moves])
 
-        with open("data/move_log.txt", "a") as move_log:
-            move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
+        # with open("data/move_log.txt", "a") as move_log:
+        #     move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
 
     def get_move(self, env, depth=3, return_value_node=False):
         node = Node('root', board=env.board, move=env.get_null_move())

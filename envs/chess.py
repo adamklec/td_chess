@@ -370,4 +370,7 @@ def min_attacker_value(board, square, side):
         min_attacker_type = min(attacker_piece_types)
     else:
         min_attacker_type = 0
-    return piece_type_to_value[min_attacker_type] / 15.0
+    if side:
+        return piece_type_to_value[min_attacker_type] / 15.0
+    else:
+        return -piece_type_to_value[min_attacker_type] / 15.0
