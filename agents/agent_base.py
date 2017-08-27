@@ -20,7 +20,7 @@ class AgentBase(metaclass=ABCMeta):
 
             self.update_count = tf.train.get_or_create_global_step()
             self.episode_count = tf.Variable(0, trainable=False)
-            self.increment_episode_count = tf.assign_add(self.episode_count, 1, use_locking=False)
+            self.increment_episode_count = tf.assign_add(self.episode_count, 1, use_locking=True)
 
             self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
             self.test_result_ = tf.placeholder(tf.int32, name='test_result_')
@@ -32,7 +32,7 @@ class AgentBase(metaclass=ABCMeta):
                 test_total = tf.reduce_sum(self.test_results)
                 tf.summary.scalar("test_total", test_total)
 
-                self.update_test_results = tf.scatter_update(self.test_results, self.test_idx_, self.test_result_, use_locking=False)
+                self.update_test_results = tf.scatter_update(self.test_results, self.test_idx_, self.test_result_, use_locking=True)
 
             with tf.name_scope('random_agent_test_results'):
 
