@@ -122,7 +122,6 @@ class TDLeafAgent(AgentBase):
             value = node.board.result()
             if isinstance(value, str):
                 value = convert_string_result(value)
-
             if node.board.turn:
                 return value, node
             else:
@@ -136,7 +135,6 @@ class TDLeafAgent(AgentBase):
             value = value_function(fv)
             tt_row = {'value': value, 'flag': 'EXACT', 'depth': depth}
             self.ttable[hash_key] = tt_row
-
             if node.board.turn:
                 return value, node
             else:

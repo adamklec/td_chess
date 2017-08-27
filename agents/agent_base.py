@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import tensorflow as tf
+from collections import Counter
 
 
 class AgentBase(metaclass=ABCMeta):
@@ -72,7 +73,7 @@ class AgentBase(metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
-    def get_move_function(self, env):
+    def get_move_function(self, depth):
         return NotImplemented
 
     def test(self, test_idx, depth=1):
@@ -93,15 +94,47 @@ class AgentBase(metaclass=ABCMeta):
             print(test_results, "\n", "TOTAL:", sum(test_results))
             print('-' * 100)
 
+    # def random_agent_test(self, depth=1):
+    #
+    #     result = self.env.random_agent_test(self.get_move_function(depth))
+    #     for update_op, result in zip(self.update_random_agent_test_results, result):
+    #         self.sess.run(update_op, feed_dict={self.test_result_: result})
+    #
+    #     global_episode_count = self.sess.run(self.update_count)
+    #
+    #     if self.verbose:
+    #         print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")
+    #         print('FIRST PLAYER:', self.sess.run([self.first_player_wins, self.first_player_draws, self.first_player_losses]))
+    #         print('SECOND PLAYER:', self.sess.run([self.second_player_wins, self.second_player_draws, self.second_player_losses]))
+    #         print('-' * 100)
+
     def random_agent_test(self, depth=1):
-        result = self.env.random_agent_test(self.get_move_function(depth))
-        for update_op, result in zip(self.update_random_agent_test_results, result):
-            self.sess.run(update_op, feed_dict={self.test_result_: result})
+            x_counter = Counter()
+            for _ in range(100):
+                self.killers = dict()
+                self.ttable = dict()
+                reward = self.env.play_random(self.get_move_function(depth), True)
+                x_counter.update([reward])
 
-        global_episode_count = self.sess.run(self.update_count)
+            o_counter = Counter()
+            for _ in range(100):
+                self.killers = dict()
+                self.ttable = dict()
+                reward = self.env.play_random(self.get_move_function(depth), False)
+                o_counter.update([reward])
 
-        if self.verbose:
-            print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")
-            print('FIRST PLAYER:', self.sess.run([self.first_player_wins, self.first_player_draws, self.first_player_losses]))
-            print('SECOND PLAYER:', self.sess.run([self.second_player_wins, self.second_player_draws, self.second_player_losses]))
-            print('-' * 100)
+            result = [x_counter[1], x_counter[0], x_counter[-1],
+                      o_counter[1], o_counter[0], o_counter[-1]]
+
+            for update_op, result in zip(self.update_random_agent_test_results, result):
+                self.sess.run(update_op, feed_dict={self.test_result_: result})
+
+            global_episode_count = self.sess.run(self.update_count)
+
+            if self.verbose:
+                print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")
+                print('FIRST PLAYER:',
+                      self.sess.run([self.first_player_wins, self.first_player_draws, self.first_player_losses]))
+                print('SECOND PLAYER:',
+                      self.sess.run([self.second_player_wins, self.second_player_draws, self.second_player_losses]))
+                print('-' * 100)

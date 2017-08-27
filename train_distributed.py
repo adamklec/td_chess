@@ -21,13 +21,13 @@ def work(env, job_name, task_index, cluster, log_dir):
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
 
-            # fv_size = env.get_feature_vector_size()
-            # network = ValueModel(fv_size)
+            fv_size = env.get_feature_vector_size()
+            network = ValueModel(fv_size)
+            # network = ChessValueModel()
 
             opt = tf.train.AdamOptimizer(use_locking=True)
             opt = tf.train.SyncReplicasOptimizer(opt, 1000, use_locking=True)
 
-            network = ChessValueModel()
             agent_name = 'worker_' + str(task_index)
             agent = TDLeafAgent(agent_name,
                                 network,
@@ -52,14 +52,16 @@ def work(env, job_name, task_index, cluster, log_dir):
                 while not sess.should_stop():
                     sess.run(agent.increment_episode_count)
                     episode_count = sess.run(agent.episode_count)
-                    if episode_count % 2000 < 14:
-                        agent.test(episode_count % 1000, depth=2)
+                    if episode_count % 2000 < 1:
+                        # agent.test(episode_count % 1000, depth=2)
+                        agent.random_agent_test(depth=2)
+
                     else:
                         agent.train(depth=2)
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(1)]
-    worker_hosts = ['localhost:' + str(3333 + i) for i in range(30)]
+    worker_hosts = ['localhost:' + str(3333 + i) for i in range(4)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
@@ -72,8 +74,8 @@ if __name__ == "__main__":
         time.sleep(1)
 
     for task_idx, _ in enumerate(worker_hosts):
-        env = ChessEnv(load_pgn=True, load_tests=True)
-        # env = TicTacToeEnv()
+        # env = ChessEnv(load_pgn=True, load_tests=True)
+        env = TicTacToeEnv()
         p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir,))
         processes.append(p)
         p.start()

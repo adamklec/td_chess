@@ -3,7 +3,7 @@ from agents.td_leaf_agent import TDLeafAgent
 from envs.chess import ChessEnv
 from chess_value_model import ChessValueModel
 import time
-# import cProfile
+import cProfile
 
 
 def main():
@@ -18,11 +18,11 @@ def main():
         agent.sess = sess
         sess.run(tf.global_variables_initializer())
 
-        # cProfile.runctx('agent.test(sess, test_idxs=[0], depth=3)', globals(), locals())
+        cProfile.runctx('agent.test(10, depth=3)', globals(), locals())
         # for i in range(14):
-        agent.test(10, depth=3)
-        test_results = sess.run(agent.test_results)
-        print(sum(test_results))
+        # agent.test(10, depth=3)
+        # test_results = sess.run(agent.test_results)
+        # print(sum(test_results))
 
 if __name__ == "__main__":
     t0 = time.time()

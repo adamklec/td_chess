@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-from collections import Counter
 from agents.random_agent import RandomAgent
 
 
@@ -69,6 +68,7 @@ class GameEnvBase(metaclass=ABCMeta):
         return NotImplemented
 
     def play_random(self, get_move_function, side):
+
         self.reset()
         random_agent = RandomAgent('random_agent_0', None, self)
         if side:
@@ -95,18 +95,18 @@ class GameEnvBase(metaclass=ABCMeta):
 
         return reward
 
-    def random_agent_test(self, get_move_function):
-        x_counter = Counter()
-        for _ in range(100):
-            self.reset()
-            reward = self.play_random(get_move_function, True)
-            x_counter.update([reward])
-
-        o_counter = Counter()
-        for _ in range(100):
-            self.reset()
-            reward = self.play_random(get_move_function, False)
-            o_counter.update([reward])
-
-        return [x_counter[1], x_counter[0], x_counter[-1],
-                o_counter[1], o_counter[0], o_counter[-1]]
+    # def random_agent_test(self, get_move_function):
+    #     x_counter = Counter()
+    #     for _ in range(100):
+    #         self.reset()
+    #         reward = self.play_random(get_move_function, True)
+    #         x_counter.update([reward])
+    #
+    #     o_counter = Counter()
+    #     for _ in range(100):
+    #         self.reset()
+    #         reward = self.play_random(get_move_function, False)
+    #         o_counter.update([reward])
+    #
+    #     return [x_counter[1], x_counter[0], x_counter[-1],
+    #             o_counter[1], o_counter[0], o_counter[-1]]
