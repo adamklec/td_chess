@@ -21,9 +21,9 @@ def work(env, job_name, task_index, cluster, log_dir):
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
 
-            fv_size = env.get_feature_vector_size()
-            network = ValueModel(fv_size)
-            # network = ChessValueModel()
+            # fv_size = env.get_feature_vector_size()
+            # network = ValueModel(fv_size)
+            network = ChessValueModel()
 
             opt = tf.train.AdamOptimizer(use_locking=True)
             opt = tf.train.SyncReplicasOptimizer(opt, 100, use_locking=True)
@@ -53,8 +53,8 @@ def work(env, job_name, task_index, cluster, log_dir):
                     sess.run(agent.increment_episode_count)
                     episode_count = sess.run(agent.episode_count)
                     if episode_count % 2000 < 1:
-                        # agent.test(episode_count % 1000, depth=2)
-                        agent.random_agent_test(depth=3)
+                        agent.test(episode_count % 1000, depth=2)
+                        # agent.random_agent_test(depth=3)
 
                     else:
                         agent.train(depth=3)
@@ -74,8 +74,8 @@ if __name__ == "__main__":
         time.sleep(1)
 
     for task_idx, _ in enumerate(worker_hosts):
-        # env = ChessEnv(load_pgn=True, load_tests=True)
-        env = TicTacToeEnv()
+        env = ChessEnv(load_pgn=True, load_tests=True)
+        # env = TicTacToeEnv()
         p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir,))
         processes.append(p)
         p.start()
