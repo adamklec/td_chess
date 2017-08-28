@@ -26,7 +26,7 @@ def work(env, job_name, task_index, cluster, log_dir):
             # network = ChessValueModel()
 
             opt = tf.train.AdamOptimizer(use_locking=True)
-            opt = tf.train.SyncReplicasOptimizer(opt, 1000, use_locking=True)
+            opt = tf.train.SyncReplicasOptimizer(opt, 100, use_locking=True)
 
             agent_name = 'worker_' + str(task_index)
             agent = TDLeafAgent(agent_name,
@@ -54,10 +54,10 @@ def work(env, job_name, task_index, cluster, log_dir):
                     episode_count = sess.run(agent.episode_count)
                     if episode_count % 2000 < 1:
                         # agent.test(episode_count % 1000, depth=2)
-                        agent.random_agent_test(depth=2)
+                        agent.random_agent_test(depth=3)
 
                     else:
-                        agent.train(depth=2)
+                        agent.train(depth=3)
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(1)]

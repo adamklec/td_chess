@@ -39,6 +39,7 @@ class TDLeafAgent(AgentBase):
         value_seq = []
         grads_seq = []
         traces = [np.zeros_like(tvar) for tvar in self.model.trainable_variables]
+        grad_accums = [np.zeros_like(tvar) for tvar in self.model.trainable_variables]
 
         turn_count = 0
 
@@ -53,8 +54,7 @@ class TDLeafAgent(AgentBase):
             if turn_count > 0:
                 delta = value_seq[-1] - value_seq[-2]
                 traces = [trace * lamda + grad for trace, grad in zip(traces, grads)]
-                self.sess.run(self.apply_grads, feed_dict={grad_: -delta * trace
-                                                           for grad_, trace in zip(self.grad_s, traces)})
+                grad_accums = [grad_accum - delta * trace for grad_accum, trace in zip(grad_accums, traces)]
 
             self.env.make_move(move)
             turn_count += 1
@@ -69,6 +69,8 @@ class TDLeafAgent(AgentBase):
             for key, row in self.ttable.items():
                 row['depth'] = row['depth'] + 1
                 self.ttable[key] = row
+
+        self.sess.run(self.apply_grads, feed_dict={grad_: grad_accum for grad_, grad_accum in zip(self.grad_s, grad_accums)})
         global_update_count = self.sess.run(self.update_count)
         if self.verbose:
             print("episode:", global_episode_count,
