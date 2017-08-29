@@ -72,50 +72,21 @@ class ChessEnv(GameEnvBase):
         legal_moves = list(board.legal_moves)
         return legal_moves
 
-    # @classmethod
-    # def make_feature_vector(cls, board):
-    #     # 6 piece type maps + en passant square map for each color + 4 castling rights bit + 1 turn bit
-    #     fv_size = cls.get_feature_vector_size()
-    #
-    #     feature_vector = np.zeros((1, fv_size), dtype='float32')
-    #
-    #     for piece in range(1, 6):
-    #         for color in range(2):
-    #             squares = board.pieces(piece, color)
-    #             for square in squares:
-    #                 feature_vector[0, (piece-1) + 6 * color + 12 * square] = 1
-    #
-    #     ep_square = board.ep_square
-    #     if ep_square:
-    #         feature_vector[0, -64 * (board.turn + 1) - 5 + ep_square] = 1
-    #
-    #     feature_vector[0, -5] = board.has_kingside_castling_rights(0)
-    #     feature_vector[0, -4] = board.has_queenside_castling_rights(0)
-    #     feature_vector[0, -3] = board.has_kingside_castling_rights(1)
-    #     feature_vector[0, -2] = board.has_queenside_castling_rights(1)
-    #     feature_vector[0, -1] = board.turn
-    #
-    #     return feature_vector
-
     @classmethod
     def make_feature_vector(cls, board):
-        fv = np.zeros((1, 165))
-        white_pawn_features = pawn_features(board, 1)
-        white_pair_piece_features = pair_piece_features(board, 1)
-        white_king_queen_features = king_queen_features(board, 1)
-        black_pawn_features = pawn_features(board, 0)
-        black_pair_piece_features = pair_piece_features(board, 0)
-        black_king_queen_features = king_queen_features(board, 0)
-        features = white_pawn_features + white_pair_piece_features + white_king_queen_features + black_pawn_features + black_pair_piece_features + black_king_queen_features
+        # 6 piece type each color + 1 turn bit
+        fv_size = cls.get_feature_vector_size()
 
-        for idx, feature in enumerate(features):
-            fv[0, 5 * idx:5 * (idx + 1)] = feature
-        fv[0, -5] = board.has_kingside_castling_rights(0)
-        fv[0, -4] = board.has_queenside_castling_rights(0)
-        fv[0, -3] = board.has_kingside_castling_rights(1)
-        fv[0, -2] = board.has_queenside_castling_rights(1)
-        fv[0, -1] = board.turn
-        return fv
+        feature_vector = np.zeros((1, fv_size), dtype='float32')
+
+        for piece in range(6):
+            for color in range(2):
+                squares = board.pieces(piece + 1, color)
+                for square in squares:
+                    feature_vector[0, piece + 6 * color + 12 * square] = 1
+        feature_vector[0, -1] = board.turn
+
+        return feature_vector
 
     @staticmethod
     def is_quiet(board, depth):
@@ -176,6 +147,8 @@ class ChessEnv(GameEnvBase):
         df, name = self.tests[test_idx]
         result = 0
         for i, (_, row) in enumerate(df.iterrows()):
+            if i > 0:
+                break
             # if verbose:
             #     print('test suite', name, ':', i)
             board = chess.Board(fen=row.fen)
@@ -187,27 +160,11 @@ class ChessEnv(GameEnvBase):
     @staticmethod
     def get_feature_vector_size():
         # return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
-        return 165
-
-    # @classmethod
-    # def get_simple_value_weights(cls):
-    #     fv_size = cls.get_feature_vector_size()
-    #     W_1 = np.zeros((fv_size, 1))
-    #     pieces = ['p', 'n', 'b', 'r', 'q', 'P', 'N', 'B', 'R', 'Q']
-    #     values = [-1, -3, -3, -5, -9, 1, 3, 3, 5, 9]
-    #     for piece, value in zip(pieces, values):
-    #         fen = '/'.join([8 * piece for _ in range(8)]) + ' w - - 0 1'
-    #         board = chess.Board(fen)
-    #         W_1[cls.make_feature_vector(board)[0] == 1, 0] = value
-    #     W_1[-5:] = 0
-    #     return W_1
+        return 769
 
     @classmethod
     def get_simple_value_weights(cls):
-        values = np.array([1] * 8 + [3] * 4 + [5] * 2 + [9] + [15] + [-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15])
-        weights = np.zeros((165, 1))
-        weights[2:160:5, 0] = values
-        return weights
+        return np.array([[-1, -3, -3, -5, -9, -15, 1, 3, 3, 5, 9, 15] * 64 + [0]]).T
 
     def zobrist_hash(self, board):
         return zobrist_hash(board)
