@@ -142,22 +142,6 @@ class TDLeafAgent(AgentBase):
             else:
                 return -value, node
 
-        elif depth < 0:
-            # self.eval_count += 1
-            fv = self.env.make_feature_vector(node.board)
-            value = value_function(fv)
-            tt_row = {'value': value, 'flag': 'EXACT', 'depth': depth}
-            self.ttable[hash_key] = tt_row
-            if node.board.turn:
-                flipped_value = value
-                flipped_alpha = alpha
-            else:
-                flipped_value = -value
-                flipped_alpha = -alpha
-            if flipped_value + .95 < flipped_alpha:
-                # self.futile_count += 1
-                return alpha, node
-
         children = []
         for move in node.board.legal_moves:
             child_board = node.board.copy()
