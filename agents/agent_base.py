@@ -33,7 +33,7 @@ class AgentBase(metaclass=ABCMeta):
                 test_total = tf.reduce_sum(self.test_results)
                 tf.summary.scalar("test_total", test_total)
 
-                self.update_test_results = tf.scatter_update(self.test_results, self.test_idx_, self.test_result_, use_locking=True)
+                self.update_test_results = tf.scatter_update(self.test_results, self.test_idx_, self.test_result_)
 
             with tf.name_scope('random_agent_test_results'):
 

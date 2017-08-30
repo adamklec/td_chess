@@ -52,11 +52,17 @@ class TDLeafAgent(AgentBase):
             grads_seq.append(grads)
 
             if turn_count > 0:
-                delta = value_seq[-1] - value_seq[-2]
-                traces = [trace * lamda + grad for trace, grad in zip(traces, grads_seq[-2])]
-                grad_accums = [grad_accum - delta * trace for grad_accum, trace in zip(grad_accums, traces)]
+                # delta = value_seq[-1] - value_seq[-2]
+                # traces = [trace * lamda + grad for trace, grad in zip(traces, grads_seq[-2])]
+                # grad_accums = [grad_accum - delta * trace for grad_accum, trace in zip(grad_accums, traces)]
 
-            self.env.make_move(move)
+                for grad, trace, grad_accum in zip(grads_seq[-2], traces, grad_accums):
+                    delta = value_seq[-1] - value_seq[-2]
+                    trace *= lamda
+                    trace += grad
+                    grad_accum -= delta * trace
+
+                self.env.make_move(move)
             turn_count += 1
 
             new_killers = dict()
