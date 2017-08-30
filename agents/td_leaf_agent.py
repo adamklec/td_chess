@@ -49,11 +49,11 @@ class TDLeafAgent(AgentBase):
             feature_vector = self.env.make_feature_vector(leaf_node.board)
             grad_vars = self.sess.run(self.grad_vars, feed_dict={self.model.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
-            grads_seq.append(grads[-2])
+            grads_seq.append(grads)
 
             if turn_count > 0:
                 delta = value_seq[-1] - value_seq[-2]
-                traces = [trace * lamda + grad for trace, grad in zip(traces, grads)]
+                traces = [trace * lamda + grad for trace, grad in zip(traces, grads_seq[-2])]
                 grad_accums = [grad_accum - delta * trace for grad_accum, trace in zip(grad_accums, traces)]
 
             self.env.make_move(move)
