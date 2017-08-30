@@ -38,8 +38,8 @@ class TDLeafAgent(AgentBase):
 
         value_seq = []
         grads_seq = []
-        traces = [np.zeros_like(tvar) for tvar in self.model.trainable_variables]
-        grad_accums = [np.zeros_like(tvar) for tvar in self.model.trainable_variables]
+        traces = [np.zeros(tvar.shape) for tvar in self.model.trainable_variables]
+        grad_accums = [np.zeros(tvar.shape) for tvar in self.model.trainable_variables]
 
         turn_count = 0
 
