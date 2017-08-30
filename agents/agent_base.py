@@ -21,7 +21,7 @@ class AgentBase(metaclass=ABCMeta):
 
             self.update_count = tf.train.get_or_create_global_step()
             self.episode_count = tf.Variable(0, trainable=False)
-            self.increment_episode_count = tf.assign_add(self.episode_count, 1, use_locking=True)
+            self.increment_episode_count = tf.assign_add(self.episode_count, 1)
 
             self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
             self.test_result_ = tf.placeholder(tf.int32, name='test_result_')

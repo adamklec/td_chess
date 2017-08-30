@@ -25,8 +25,8 @@ def work(env, job_name, task_index, cluster, log_dir):
             # network = ValueModel(fv_size)
             network = ChessValueModel()
 
-            opt = tf.train.AdamOptimizer(use_locking=True)
-            opt = tf.train.SyncReplicasOptimizer(opt, 100, use_locking=True)
+            opt = tf.train.AdamOptimizer()
+            opt = tf.train.SyncReplicasOptimizer(opt, 100)
 
             agent_name = 'worker_' + str(task_index)
             agent = TDLeafAgent(agent_name,
@@ -60,7 +60,7 @@ def work(env, job_name, task_index, cluster, log_dir):
                         agent.train(depth=2)
 
 if __name__ == "__main__":
-    ps_hosts = ['localhost:' + str(2222 + i) for i in range(1)]
+    ps_hosts = ['localhost:' + str(2222 + i) for i in range(5)]
     worker_hosts = ['localhost:' + str(3333 + i) for i in range(30)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
