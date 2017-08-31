@@ -20,20 +20,22 @@ class TDLeafAgent(AgentBase):
                        for var in self.model.trainable_variables]
         self.grad_accums = [tf.Variable(np.zeros(tvar.shape), trainable=False, dtype=tf.float32)
                             for tvar in self.model.trainable_variables]
-        for tvar, accum in zip(self.model.trainable_variables, self.grad_accums):
-            tf.summary.histogram(tvar.op.name + '_accum', accum)
-
-        self.grad_s = [tf.placeholder(tf.float32, shape=tvar.get_shape(), name=tvar.op.name + '_ACCUM_PLACEHOLDER')
-                       for tvar in self.model.trainable_variables]
         update_grad_accums = [tf.assign_add(grad_accum, grad_)
                               for grad_accum, grad_ in zip(self.grad_accums, self.grad_s)]
         self.update_grad_accums_op = tf.group(*update_grad_accums)
+
+        reset_grad_accums = [tf.assign(grad_accum, np.zeros(tvar.shape))
+                             for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
+
+        self.reset_grad_accums_op = tf.group(*reset_grad_accums)
+
+        for tvar, accum in zip(self.model.trainable_variables, self.grad_accums):
+            tf.summary.histogram(tvar.op.name + '_accum', accum)
+
         self.apply_grads = self.opt.apply_gradients(zip(self.grad_accums,
                                                         self.model.trainable_variables),
                                                     name='apply_grads', global_step=self.episode_count)
-        reset_grad_accums = [tf.assign(grad_accum, np.zeros(tvar.shape))
-                             for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
-        self.reset_grad_accums_op = tf.group(*reset_grad_accums)
+
 
     def train(self, global_episode_count, depth=1, ):
         lamda = 0.7
