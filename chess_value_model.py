@@ -15,15 +15,15 @@ class ChessValueModel:
             self.feature_vector_ = tf.placeholder(tf.float32, shape=[None, fv_size], name='feature_vector_')
             with tf.variable_scope('layer_1'):
                 W_1 = tf.get_variable('W_1', initializer=tf.truncated_normal([fv_size, 1000], stddev=0.01))
-                hidden_1 = tf.nn.relu(tf.matmul(self.feature_vector_, W_1), name='hidden')
+                hidden_1 = tf.nn.relu(tf.matmul(self.feature_vector_, W_1), name='hidden_1')
 
             with tf.variable_scope('layer_2'):
                 W_2 = tf.get_variable('W_2', initializer=tf.truncated_normal([1000, 1000], stddev=0.01))
-                hidden_2 = tf.nn.relu(tf.matmul(hidden_1, W_2), name='hidden')
+                hidden_2 = tf.nn.relu(tf.matmul(hidden_1, W_2), name='hidden_2')
 
             with tf.variable_scope('layer_3'):
                 W_3 = tf.get_variable('W_3', initializer=tf.truncated_normal([1000, 1], stddev=0.01))
-                hidden_3 = tf.matmul(hidden_2, W_3)
+                hidden_3 = tf.matmul(hidden_2, W_3, name='hidden_3')
 
             simple_value = tf.matmul(self.feature_vector_, simple_value_weights)
 
