@@ -93,12 +93,14 @@ class ChessEnv(GameEnvBase):
         parent_board = board.copy()
         move = parent_board.pop()
 
-        if depth > -2:
-            is_check = board.is_check()
-            parent_is_check = parent_board.is_check()
-        else:
-            is_check = False
-            parent_is_check = False
+        # if depth > -2:
+        #     is_check = board.is_check()
+        #     parent_is_check = parent_board.is_check()
+        # else:
+        #     is_check = False
+        #     parent_is_check = False
+
+        is_check = board.is_check()
 
         if parent_board.is_capture(move) and not parent_board.is_en_passant(move):
             capturing_piece_type = parent_board.piece_type_at(move.from_square)
@@ -109,7 +111,7 @@ class ChessEnv(GameEnvBase):
 
         is_promotion = move.promotion is not None
 
-        return not (is_losing_capture or is_promotion or is_check or parent_is_check)
+        return not (is_losing_capture or is_promotion or is_check)  # or parent_is_check)
 
     def sort_children(self, parent, children, ttable, killers):
         hashed_nodes = []
@@ -147,6 +149,11 @@ class ChessEnv(GameEnvBase):
         df, name = self.tests[test_idx]
         result = 0
         for i, (_, row) in enumerate(df.iterrows()):
+            # idx = 0
+            # if i < idx:
+            #     continue
+            # if i > idx:
+            #     break
             # if verbose:
             #     print('test suite', name, ':', i)
             board = chess.Board(fen=row.fen)
