@@ -19,8 +19,7 @@ class AgentBase(metaclass=ABCMeta):
             for tvar in self.model.trainable_variables:
                 tf.summary.histogram(tvar.op.name, tvar)
 
-            self.update_count = tf.train.get_or_create_global_step()
-            self.episode_count = tf.Variable(0, trainable=False)
+            self.episode_count = tf.train.get_or_create_global_step()
             self.increment_episode_count = tf.assign_add(self.episode_count, 1)
 
             self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
