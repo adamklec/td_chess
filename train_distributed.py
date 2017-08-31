@@ -50,7 +50,7 @@ def work(env, job_name, task_index, cluster, log_dir):
                         agent.test(episode_count % 1000, depth=2)
                         # agent.random_agent_test(depth=3)
                     else:
-                        agent.train(depth=2)
+                        agent.train(episode_count, depth=2)
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(5)]

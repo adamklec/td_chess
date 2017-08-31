@@ -35,8 +35,7 @@ class TDLeafAgent(AgentBase):
                              for grad_accum, tvar in zip(self.grad_accums, self.model.trainable_variables)]
         self.reset_grad_accums_op = tf.group(*reset_grad_accums)
 
-    def train(self, depth=1):
-        global_episode_count = self.sess.run(self.episode_count)
+    def train(self, global_episode_count, depth=1, ):
         lamda = 0.7
         self.env.random_position()
         # self.env.set_board(chess.Board("1k2r3/1p1bP3/2p2p1Q/Ppb5/4Rp1P/2q2N1P/5PB1/6K1 b - - 0 1"))
