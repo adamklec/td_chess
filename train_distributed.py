@@ -47,10 +47,10 @@ def work(env, job_name, task_index, cluster, log_dir):
                     sess.run(agent.increment_episode_count)
                     episode_count = sess.run(agent.episode_count)
                     if episode_count % 2000 < 14:
-                        agent.test(episode_count % 1000, depth=3)
+                        agent.test(episode_count % 1000, depth=2)
                         # agent.random_agent_test(depth=3)
                     else:
-                        agent.train(depth=3)
+                        agent.train(depth=2)
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(5)]
