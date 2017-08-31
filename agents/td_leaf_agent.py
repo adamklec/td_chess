@@ -52,10 +52,6 @@ class TDLeafAgent(AgentBase):
             grads_seq.append(grads)
 
             if turn_count > 0:
-                # delta = value_seq[-1] - value_seq[-2]
-                # traces = [trace * lamda + grad for trace, grad in zip(traces, grads_seq[-2])]
-                # grad_accums = [grad_accum - delta * trace for grad_accum, trace in zip(grad_accums, traces)]
-
                 for grad, trace, grad_accum in zip(grads_seq[-2], traces, grad_accums):
                     delta = value_seq[-1] - value_seq[-2]
                     trace *= lamda
@@ -91,7 +87,7 @@ class TDLeafAgent(AgentBase):
 
     def get_move(self, env, depth=3, return_value_node=False):
         node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.minimax(node, depth, -1, 1, self.model.value_function(self.sess))
+        leaf_value, leaf_node = self.minimax(node, depth, -100000, 100000, self.model.value_function(self.sess))
         if len(leaf_node.path) > 1:
             move = leaf_node.path[1].move
         else:
@@ -128,7 +124,7 @@ class TDLeafAgent(AgentBase):
             value = node.board.result()
             if isinstance(value, str):
                 value = convert_string_result(value)
-                return value, node
+            return value, node
 
         elif depth <= 0 and self.env.is_quiet(node.board, depth):
             fv = self.env.make_feature_vector(node.board)
