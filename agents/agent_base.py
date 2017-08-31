@@ -82,12 +82,27 @@ class AgentBase(metaclass=ABCMeta):
         self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
                                                            self.test_result_: result})
         test_results = self.sess.run(self.test_results)
-        global_update_count = self.sess.run(self.update_count)
         global_episode_count = self.sess.run(self.episode_count)
 
         if self.verbose:
             print("EPISODE", global_episode_count,
-                  "UPDATE:", global_update_count,
+                  "STS#:", test_idx + 1,
+                  "RESULT:", result)
+            print(test_results, "\n", "TOTAL:", sum(test_results))
+            print('-' * 100)
+
+    def test2(self, test_idx, depth=3):
+        self.killers = dict()
+        self.ttable = dict()
+        for i in range(1, depth+1):
+            result = self.env.test(self.get_move_function(depth=depth), test_idx, verbose=self.verbose)
+        self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
+                                                           self.test_result_: result})
+        test_results = self.sess.run(self.test_results)
+        global_episode_count = self.sess.run(self.episode_count)
+
+        if self.verbose:
+            print("EPISODE", global_episode_count,
                   "STS#:", test_idx + 1,
                   "RESULT:", result)
             print(test_results, "\n", "TOTAL:", sum(test_results))
