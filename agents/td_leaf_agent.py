@@ -91,7 +91,7 @@ class TDLeafAgent(AgentBase):
 
     def get_move(self, env, depth=3, return_value_node=False):
         node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.negamax(node, depth, -1, 1, self.model.value_function(self.sess))
+        leaf_value, leaf_node = self.minimax(node, depth, -1, 1, self.model.value_function(self.sess))
         if len(leaf_node.path) > 1:
             move = leaf_node.path[1].move
         else:
@@ -111,7 +111,8 @@ class TDLeafAgent(AgentBase):
             return move
         return m
 
-    def negamax(self, node, depth, alpha, beta, value_function):
+    def minimax(self, node, depth, alpha, beta, value_function):
+
         alpha_orig = alpha
 
         hash_key = self.env.zobrist_hash(node.board)
@@ -130,23 +131,14 @@ class TDLeafAgent(AgentBase):
             value = node.board.result()
             if isinstance(value, str):
                 value = convert_string_result(value)
-            if node.board.turn:
                 return value, node
-            else:
-                return -value, node
 
-        elif (depth <= 0 and self.env.is_quiet(node.board, depth)):  # or depth < -15:
-            # print(depth)
-            # print(node.path[0].board.fen())
-            # print([node.move for node in node.path])
+        elif depth <= 0 and self.env.is_quiet(node.board, depth):
             fv = self.env.make_feature_vector(node.board)
             value = value_function(fv)
             tt_row = {'value': value, 'flag': 'EXACT', 'depth': depth}
             self.ttable[hash_key] = tt_row
-            if node.board.turn:
-                return value, node
-            else:
-                return -value, node
+            return value, node
 
         children = []
         for move in node.board.legal_moves:
@@ -156,35 +148,52 @@ class TDLeafAgent(AgentBase):
             children.append(child)
 
         children = self.env.sort_children(node, children, self.ttable, self.killers.get(depth, []) + self.killers.get(depth-2, []))
-        v = -100000
-        n = node
-        for child in children:
-            vv, nn = self.negamax(child, depth - 1, -beta, -alpha, value_function)
-            vv = -vv
-            if vv > v:
-                v = vv
-                n = nn
-            alpha = max(alpha, vv)
-            if alpha >= beta:
-                if self.killers.get(depth) is None:
-                    self.killers[depth] = [child.move, None]
-                else:
-                    self.killers[depth] = [child.move, self.killers[depth][0]]
-                break
+
+        if node.board.turn:
+            best_v = -100000
+            best_n = None
+            for child in children:
+                value, node = self.minimax(child, depth - 1, alpha, beta, value_function)
+                if value > best_v:
+                    best_v = value
+                    best_n = node
+                alpha = max(alpha, value)
+                if beta <= alpha:
+                    if self.killers.get(depth) is None:
+                        self.killers[depth] = [child.move, None]
+                    else:
+                        self.killers[depth] = [child.move, self.killers[depth][0]]
+                    break
+        else:
+            best_v = 100000
+            best_n = None
+            for child in children:
+                value, node = self.minimax(child, depth - 1, alpha, beta, value_function)
+                if value < best_v:
+                    best_v = value
+                    best_n = node
+                beta = min(beta, value)
+                if beta <= alpha:
+                    if self.killers.get(depth) is None:
+                        self.killers[depth] = [child.move, None]
+                    else:
+                        self.killers[depth] = [child.move, self.killers[depth][0]]
+                    break
 
         if tt_row is None:
             tt_row = dict()
-        tt_row['value'] = v
-        if v <= alpha_orig:
+        tt_row['value'] = best_v
+        if best_v <= alpha_orig:
             tt_row['flag'] = 'UPPERBOUND'
-        elif v >= beta:
+        elif best_v >= beta:
             tt_row['flag'] = 'LOWERBOUND'
         else:
             tt_row['flag'] = 'EXACT'
 
         tt_row['depth'] = depth
         self.ttable[hash_key] = tt_row
-        return v, n
+
+        return best_v, best_n
 
 
 def convert_string_result(string):

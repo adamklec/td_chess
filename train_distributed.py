@@ -43,9 +43,7 @@ def work(env, job_name, task_index, cluster, log_dir):
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=1,
                                                hooks=[sync_replicas_hook],
-                                               scaffold=tf.train.Scaffold(summary_op=summary_op),
-                                               config=tf.ConfigProto(inter_op_parallelism_threads=500,
-                                                                     intra_op_parallelism_threads=1)) as sess:
+                                               scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
             agent.sess = sess
 
             if job_name == "worker":
