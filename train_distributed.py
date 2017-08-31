@@ -72,6 +72,8 @@ if __name__ == "__main__":
         p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir,))
         processes.append(p)
         p.start()
+        time.sleep(1)
+
 
     for process in processes:
         process.join()
