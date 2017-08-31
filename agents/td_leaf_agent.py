@@ -97,9 +97,6 @@ class TDLeafAgent(AgentBase):
         else:
             return env.get_null_move()
 
-        if not node.board.turn:
-            leaf_value = -leaf_value
-
         if return_value_node:
             return move, leaf_value, leaf_node
         else:
