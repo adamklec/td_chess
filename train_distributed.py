@@ -28,12 +28,12 @@ def work(env, job_name, task_index, cluster, log_dir):
             opt = tf.train.AdamOptimizer()
             opt = tf.train.SyncReplicasOptimizer(opt, 100)
 
-            agent_name = 'worker_' + str(task_index)
-            agent = TDLeafAgent(agent_name,
+            worker_name = 'worker_%03d' % task_index
+            agent = TDLeafAgent(worker_name,
                                 network,
                                 env,
                                 opt=opt,
-                                verbose=True)
+                                verbose=1)
             summary_op = tf.summary.merge_all()
             is_chief = task_index == 0 and job_name == 'worker'
             sync_replicas_hook = opt.make_session_run_hook(is_chief)
@@ -46,12 +46,15 @@ def work(env, job_name, task_index, cluster, log_dir):
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
             agent.sess = sess
 
+            test_period = 30
             if job_name == "worker":
                 while not sess.should_stop():
-                    sess.run(agent.increment_episode_count)
                     episode_count = sess.run(agent.episode_count)
-                    if episode_count % 2000 < 14:
-                        agent.test(episode_count % 1000, depth=2)
+                    sess.run(agent.increment_episode_count)
+                    if episode_count % test_period < 2:
+                        test_idx = episode_count % test_period
+                        print(worker_name, "starting test", test_idx)
+                        agent.test(test_idx, depth=2)
                         # agent.random_agent_test(depth=3)
 
                     else:
@@ -72,11 +75,12 @@ if __name__ == "__main__":
         time.sleep(1)
 
     for task_idx, _ in enumerate(worker_hosts):
-        env = ChessEnv(load_pgn=True, load_tests=True)
+        env = ChessEnv()
         # env = TicTacToeEnv()
         p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir,))
         processes.append(p)
         p.start()
+        time.sleep(1)
 
     for process in processes:
         process.join()
