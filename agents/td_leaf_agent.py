@@ -52,11 +52,19 @@ class TDLeafAgent(AgentBase):
             grads_seq.append(grads)
 
             if turn_count > 0:
+                delta = (value_seq[-1] - value_seq[-2])[0, 0]
                 for grad, trace, grad_accum in zip(grads_seq[-2], traces, grad_accums):
-                    delta = value_seq[-1] - value_seq[-2]
                     trace *= lamda
                     trace += grad
                     grad_accum -= delta * trace
+
+                if self.verbose > 1:
+                    global_update_count = self.sess.run(self.update_count)
+                    print("episode:", global_episode_count,
+                          "update:", global_update_count,
+                          self.name,
+                          "turn:", turn_count,
+                          'delta:', delta)
 
                 self.env.make_move(move)
             turn_count += 1
@@ -191,11 +199,11 @@ class TDLeafAgent(AgentBase):
 
 def convert_string_result(string):
     if string == '1-0':
-        return 1.0
+        return np.array([[1.0]])
     elif string == '0-1':
-        return -1.0
+        return np.array([[-1.0]])
     elif string == '1/2-1/2':
-        return 0.0
+        return np.array([[0.0]])
     elif string == '*':
         return None
     else:
