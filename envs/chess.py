@@ -9,25 +9,18 @@ import pandas as pd
 
 class ChessEnv(GameEnvBase):
 
-    def __init__(self, load_pgn=True, load_tests=False):
-        self.load_tests = load_tests
-        self.load_pgn = load_pgn
+    def __init__(self):
         self.board = chess.Board()
 
-        if self.load_pgn:
-            pgn = open("./data/millionbase-2.22.pgn")
-            self.board_generator = random_board_generator(pgn)
-        else:
-            self.board_generator = None
+        pgn = open("./data/millionbase-2.22.pgn")
+        self.board_generator = self.random_board_generator(pgn)
 
-        if self.load_tests:
-            self.tests = []
-            path = "./chess_tests/"
-            filenames = ['STS%s.epd' % str(i).zfill(2) for i in range(1, 15)]
-            for filename in filenames:
-                self.tests.append((parse_tests(path + filename), filename))
-        else:
-            self.tests = None
+        self.tests = []
+        path = "./chess_tests/"
+        filenames = ['STS%s.epd' % str(i).zfill(2) for i in range(1, 15)]
+        for filename in filenames:
+            self.tests.append((parse_tests(path + filename), filename))
+
 
     def get_null_move(self):
         return chess.Move.null()
@@ -41,7 +34,8 @@ class ChessEnv(GameEnvBase):
     def set_board(self, board):
         self.board = board
 
-    def random_position(self):
+    def random_position(self, episode_count=None):
+        self.episode_count_ = episode_count
         for _ in range(randint(1, 100)):
             self.board = self.board_generator.__next__()
 
@@ -149,8 +143,10 @@ class ChessEnv(GameEnvBase):
         df, name = self.tests[test_idx]
         result = 0
         for i, (_, row) in enumerate(df.iterrows()):
-            # if verbose:
-            #     print('test suite', name, ':', i)
+            if i > 10:
+                break
+            if verbose > 1:
+                print('test suite', name, ':', i)
             board = chess.Board(fen=row.fen)
             self.board = board
             move = get_move_function(self)
@@ -169,17 +165,22 @@ class ChessEnv(GameEnvBase):
     def zobrist_hash(self, board):
         return zobrist_hash(board)
 
+    def random_board_generator(self, pgn, decay=5000):
+        while True:
+            game = read_game(pgn)
+            main_line_length = len(list(game.main_line()))
+            if self.episode_count_ is None:
+                min_move_number = 0
+            else:
+                min_move_number = int(np.e**(-self.episode_count_/decay) * (main_line_length - 1))
 
-def random_board_generator(pgn):
-    while True:
-        game = read_game(pgn)
-        if game and len(list(game.main_line())) > 0:
-            move_number = np.random.randint(0, high=len(list(game.main_line())) - 1)  # don't take the last move
-            while 2 * (game.board().fullmove_number - 1) + int(not game.board().turn) < move_number:
-                game = game.variation(0)
-            yield game.board()
-        else:
-            pgn.seek(0)
+            if game and len(list(game.main_line())) > 0:
+                move_number = np.random.randint(min_move_number, high=main_line_length - 1)  # don't take the last move
+                for _ in range(move_number):
+                    game = game.variation(0)
+                yield game.board()
+            else:
+                pgn.seek(0)
 
 
 def board_generator(pgn):
