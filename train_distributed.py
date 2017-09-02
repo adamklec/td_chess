@@ -55,6 +55,7 @@ def work(env, job_name, task_index, cluster, log_dir):
                         test_idx = episode_count % test_period
                         print(worker_name, "starting test", test_idx)
                         agent.test(test_idx, depth=2)
+                    if episode_count % test_period < 14:
                         # agent.random_agent_test(depth=3)
 
                     else:
