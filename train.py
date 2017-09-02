@@ -14,17 +14,14 @@ def main():
     network = ValueModel(env.get_feature_vector_size())
     # agent = EpsilonGreedyAgent('agent_0', network, env, verbose=True)
 
-    # env = ChessEnv(load_tests=True)
+    # env = ChessEnv()
     # network = ChessValueModel()
     agent = TDLeafAgent('agent_0', network, env, verbose=True)
 
     summary_op = tf.summary.merge_all()
     log_dir = "./log/" + str(int(time.time()))
 
-    global_episode_count = tf.train.get_or_create_global_step()
-    increment_global_episode_count_op = global_episode_count.assign_add(1)
-
-    with tf.train.MonitoredTrainingSession(checkpoint_dir=log_dir,
+    with tf.train.SingularMonitoredSession(checkpoint_dir=log_dir,
                                            scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
         agent.sess = sess
         # cProfile.runctx('agent.train(depth=3)', globals(), locals())
@@ -36,7 +33,7 @@ def main():
                 # pass
             else:
                 agent.train(depth=2)
-            sess.run(increment_global_episode_count_op)
+            sess.run(agent.increment_episode_count)
 
 if __name__ == "__main__":
     main()

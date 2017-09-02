@@ -12,7 +12,7 @@ def main():
     with tf.Session(config=config) as sess:
 
         network = ChessValueModel()
-        env = ChessEnv(load_tests=True)
+        env = ChessEnv()
 
         agent = TDLeafAgent('tester_0', network, env, verbose=True)
         agent.sess = sess
