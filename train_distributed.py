@@ -46,23 +46,24 @@ def work(env, job_name, task_index, cluster, log_dir):
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
             agent.sess = sess
 
-            test_period = 30
+            test_period = 1000
             if job_name == "worker":
                 while not sess.should_stop():
                     episode_count = sess.run(agent.episode_count)
                     sess.run(agent.increment_episode_count)
-                    if episode_count % test_period < 14:
+                    if episode_count % test_period < 14 and episode_count > 100:
                         test_idx = episode_count % test_period
                         print(worker_name, "starting test", test_idx)
-                        agent.test(test_idx, depth=2)
+                        agent.test(test_idx, depth=3)
                         # agent.random_agent_test(depth=3)
+                        pass
 
                     else:
-                        agent.train(depth=2)
+                        agent.train(depth=3)
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(5)]
-    worker_hosts = ['localhost:' + str(3333 + i) for i in range(30)]
+    worker_hosts = ['localhost:' + str(3333 + i) for i in range(40)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
