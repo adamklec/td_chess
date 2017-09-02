@@ -143,8 +143,6 @@ class ChessEnv(GameEnvBase):
         df, name = self.tests[test_idx]
         result = 0
         for i, (_, row) in enumerate(df.iterrows()):
-            if i > 10:
-                break
             if verbose > 1:
                 print('test suite', name, ':', i)
             board = chess.Board(fen=row.fen)
