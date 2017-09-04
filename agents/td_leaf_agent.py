@@ -43,7 +43,7 @@ class TDLeafAgent(AgentBase):
 
         turn_count = 0
 
-        while self.env.get_reward() is None and turn_count < 10:
+        while self.env.get_reward() is None and turn_count < 5:
             move, leaf_value, leaf_node = self.get_move(self.env, depth=depth, return_value_node=True)
             value_seq.append(leaf_value)
             feature_vector = self.env.make_feature_vector(leaf_node.board)
