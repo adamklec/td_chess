@@ -79,20 +79,19 @@ class AgentBase(metaclass=ABCMeta):
     def test(self, test_idx, depth=1):
         self.killers = dict()
         self.ttable = dict()
-        result = self.env.test(self.get_move_function(depth=depth), test_idx, verbose=self.verbose)
-        self.sess.run(self.update_test_results, feed_dict={self.test_idx_: test_idx,
-                                                           self.test_result_: result})
-        test_results = self.sess.run(self.test_results)
-        global_update_count = self.sess.run(self.update_count)
-        global_episode_count = self.sess.run(self.episode_count)
+        df = self.env.get_test(test_idx)
+        total_result = 0
+        for i, (_, row) in enumerate(df.iterrows()):
+            if i > 5:
+                break
 
-        if self.verbose:
-            print("EPISODE", global_episode_count,
-                  "UPDATE:", global_update_count,
-                  "STS#:", test_idx + 1,
-                  "RESULT:", result)
-            print(test_results, "\n", "TOTAL:", sum(test_results))
-            print('-' * 100)
+            self.env.make_board(row.fen)
+            move = self.get_move(self.env, depth=depth)
+            result = row.c0.get(self.env.board.san(move), 0)
+            total_result += result
+            if self.verbose > 1:
+                print(self.name, 'test suite:', test_idx+1, 'row:', i, 'result:', result)
+        return total_result
 
     # def random_agent_test(self, depth=1):
     #

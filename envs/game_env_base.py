@@ -17,6 +17,10 @@ class GameEnvBase(metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
+    def make_board(self, fen):
+        return NotImplemented
+
+    @abstractmethod
     def get_move_stack(self):
         return NotImplemented
 
@@ -56,7 +60,7 @@ class GameEnvBase(metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
-    def test(self, get_move_function, test_idx):
+    def get_test(self, test_idx):
         return NotImplemented
 
     @abstractmethod

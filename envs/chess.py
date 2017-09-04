@@ -139,17 +139,9 @@ class ChessEnv(GameEnvBase):
             victim = board.piece_type_at(move.to_square)
         return int(str(6 - victim) + str(aggressor - 1))
 
-    def test(self, get_move_function, test_idx, verbose=False):
-        df, name = self.tests[test_idx]
-        result = 0
-        for i, (_, row) in enumerate(df.iterrows()):
-            if verbose > 1:
-                print('test suite', name, ':', i)
-            board = chess.Board(fen=row.fen)
-            self.board = board
-            move = get_move_function(self)
-            result += row.c0.get(board.san(move), 0)
-        return result
+    def get_test(self, test_idx):
+        df, _ = self.tests[test_idx]
+        return df
 
     @staticmethod
     def get_feature_vector_size():
