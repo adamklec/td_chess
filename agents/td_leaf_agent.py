@@ -27,9 +27,8 @@ class TDLeafAgent(AgentBase):
                                                     name='apply_grads', global_step=self.update_count)
 
     def train(self, depth=1):
-        global_episode_count = self.sess.run(self.episode_count)
         lamda = 0.7
-        self.env.random_position(episode_count=global_episode_count)
+        self.env.random_position(episode_count=self.sess.run(self.episode_count))
         # self.env.set_board(chess.Board("1k2r3/1p1bP3/2p2p1Q/Ppb5/4Rp1P/2q2N1P/5PB1/6K1 b - - 0 1"))
         self.ttable = dict()
         self.killers = dict()
@@ -58,14 +57,6 @@ class TDLeafAgent(AgentBase):
                     trace += grad
                     grad_accum -= delta * trace
 
-                if self.verbose > 1:
-                    global_update_count = self.sess.run(self.update_count)
-                    print("episode:", global_episode_count,
-                          "update:", global_update_count,
-                          self.name,
-                          "turn:", turn_count,
-                          'delta:', delta)
-
                 self.env.make_move(move)
             turn_count += 1
 
@@ -81,17 +72,13 @@ class TDLeafAgent(AgentBase):
                 self.ttable[key] = row
 
         self.sess.run(self.apply_grads, feed_dict={grad_: grad_accum for grad_, grad_accum in zip(self.grad_s, grad_accums)})
-        global_update_count = self.sess.run(self.update_count)
-        if self.verbose:
-            print("episode:", global_episode_count,
-                  "update:", global_update_count,
-                  self.name,
-                  'reward:', self.env.get_reward())
 
         # selected_moves_string = ','.join([str(m) for m in selected_moves])
 
         # with open("data/move_log.txt", "a") as move_log:
         #     move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
+
+        return self.env.get_reward()
 
     def get_move(self, env, depth=3, return_value_node=False):
         node = Node('root', board=env.board, move=env.get_null_move())

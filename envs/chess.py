@@ -21,7 +21,6 @@ class ChessEnv(GameEnvBase):
         for filename in filenames:
             self.tests.append((parse_tests(path + filename), filename))
 
-
     def get_null_move(self):
         return chess.Move.null()
 
@@ -33,6 +32,9 @@ class ChessEnv(GameEnvBase):
 
     def set_board(self, board):
         self.board = board
+
+    def make_board(self, fen):
+        self.board = chess.Board(fen)
 
     def random_position(self, episode_count=None):
         self.episode_count_ = episode_count
