@@ -14,7 +14,7 @@ class TicTacToeEnv(GameEnvBase):
     def reset(self):
         self.board = TicTacToeBoard()
 
-    def random_position(self):
+    def random_position(self, episode_count):
         self.reset()
         if random() > .5:
             legal_moves = self.get_legal_moves()
@@ -35,6 +35,9 @@ class TicTacToeEnv(GameEnvBase):
         if board is None:
             board = self.board
         return board.result()
+
+    def make_board(self, fen):
+        return NotImplementedError
 
     def make_move(self, move):
         assert move in self.get_legal_moves()
@@ -100,7 +103,7 @@ class TicTacToeEnv(GameEnvBase):
                 print("draw")
         return self.get_reward()
 
-    def test(self, get_move_function, test_idx):
+    def get_test(self, test_idx):
         return NotImplementedError
 
     @staticmethod

@@ -34,7 +34,7 @@ class GameEnvBase(metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
-    def random_position(self):
+    def random_position(self, episode_count):
         return NotImplemented
 
     @abstractmethod

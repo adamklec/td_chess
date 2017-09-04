@@ -26,7 +26,7 @@ class TDLeafAgent(AgentBase):
                                                         self.model.trainable_variables),
                                                     name='apply_grads', global_step=self.update_count)
 
-    def train(self, depth=1):
+    def train(self, num_moves=10, depth=1):
         lamda = 0.7
         self.env.random_position(episode_count=self.sess.run(self.episode_count))
         # self.env.set_board(chess.Board("1k2r3/1p1bP3/2p2p1Q/Ppb5/4Rp1P/2q2N1P/5PB1/6K1 b - - 0 1"))
@@ -42,7 +42,7 @@ class TDLeafAgent(AgentBase):
 
         turn_count = 0
 
-        while self.env.get_reward() is None and turn_count < 5:
+        while self.env.get_reward() is None and turn_count < num_moves:
             move, leaf_value, leaf_node = self.get_move(self.env, depth=depth, return_value_node=True)
             value_seq.append(leaf_value)
             feature_vector = self.env.make_feature_vector(leaf_node.board)
@@ -119,6 +119,8 @@ class TDLeafAgent(AgentBase):
             value = node.board.result()
             if isinstance(value, str):
                 value = convert_string_result(value)
+            else:
+                value = np.array([[value]])
             return value, node
 
         elif depth <= 0 and self.env.is_quiet(node.board, depth):

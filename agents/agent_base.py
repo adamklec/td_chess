@@ -124,16 +124,4 @@ class AgentBase(metaclass=ABCMeta):
 
             result = [x_counter[1], x_counter[0], x_counter[-1],
                       o_counter[1], o_counter[0], o_counter[-1]]
-
-            for update_op, result in zip(self.update_random_agent_test_results, result):
-                self.sess.run(update_op, feed_dict={self.test_result_: result})
-
-            global_episode_count = self.sess.run(self.update_count)
-
-            if self.verbose:
-                print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")
-                print('FIRST PLAYER:',
-                      self.sess.run([self.first_player_wins, self.first_player_draws, self.first_player_losses]))
-                print('SECOND PLAYER:',
-                      self.sess.run([self.second_player_wins, self.second_player_draws, self.second_player_losses]))
-                print('-' * 100)
+            return result
