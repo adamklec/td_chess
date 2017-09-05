@@ -100,7 +100,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
 
 if __name__ == "__main__":
     ps_hosts = ['localhost:' + str(2222 + i) for i in range(5)]
-    worker_hosts = ['localhost:' + str(3333 + i) for i in range(60)]
+    worker_hosts = ['localhost:' + str(3333 + i) for i in range(50)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
