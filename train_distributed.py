@@ -95,7 +95,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
                                       "REWARD:", reward)
                                 print('-' * 100)
                 else:
-                    server.join()
+                    reward = agent.train(num_moves=10, depth=3)
 
 
 if __name__ == "__main__":
