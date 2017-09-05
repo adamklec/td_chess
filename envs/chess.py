@@ -148,11 +148,19 @@ class ChessEnv(GameEnvBase):
     @staticmethod
     def get_feature_vector_size():
         # return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
-        return 769
+        return 161
+
+    # @classmethod
+    # def get_simple_value_weights(cls):
+    #     return np.array([[-1, -3, -3, -5, -9, -15, 1, 3, 3, 5, 9, 15] * 64 + [0]]).T
 
     @classmethod
     def get_simple_value_weights(cls):
-        return np.array([[-1, -3, -3, -5, -9, -15, 1, 3, 3, 5, 9, 15] * 64 + [0]]).T
+        values = np.array([1] * 8 + [3] * 4 + [5] * 2 + [9] + [15] + [-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15])
+        weights = np.zeros((161, 1))
+        weights[2:160:5, 0] = values
+        return weights
+
 
     def zobrist_hash(self, board):
         return zobrist_hash(board)
@@ -173,6 +181,23 @@ class ChessEnv(GameEnvBase):
                 yield game.board()
             else:
                 pgn.seek(0)
+
+    @staticmethod
+    def make_feature_vector2(board):
+        fv = np.zeros((1, 193))
+        from_squares = [move.from_square for move in board.legal_moves]
+        white_pawn_features = pawn_features(board, 1, from_squares)
+        white_pair_piece_features = pair_piece_features(board, 1, from_squares)
+        white_king_queen_features = king_queen_features(board, 1, from_squares)
+        black_pawn_features = pawn_features(board, 0, from_squares)
+        black_pair_piece_features = pair_piece_features(board, 0, from_squares)
+        black_king_queen_features = king_queen_features(board, 0, from_squares)
+        features = white_pawn_features + white_pair_piece_features + white_king_queen_features + black_pawn_features + black_pair_piece_features + black_king_queen_features
+
+        for idx, feature in enumerate(features):
+            fv[0, 6 * idx:6 * (idx + 1)] = feature
+        fv[0, -1] = board.turn
+        return fv
 
 
 def board_generator(pgn):
@@ -243,3 +268,89 @@ def parse_tests(filename):
     df = pd.DataFrame.from_dict(dicts)
     df = df.set_index('id')
     return df
+
+
+def pawn_features(board, side, from_squares):
+    features = [[0, 0, 1, 0, 0, 0]]*8
+    empty_slots = set(range(8))
+    unplaced_squares = set()
+    squares = set(board.pieces(1, side))
+    for i, square in enumerate(squares):
+        file = square % 8
+        if file in empty_slots:
+            rank = int(square / 8)
+            file = square % 8
+            slot = file
+            empty_slots.remove(slot)
+            min_attacker = min_attacker_value(board, square, not side)
+            min_defender = min_attacker_value(board, square, side)
+            mobility = sum([square == from_square for from_square in from_squares]) / 27.0
+            features[slot] = [file/8, rank/8, 0, min_defender, min_attacker, mobility]
+        else:
+            unplaced_squares.add(square)
+
+    empty_slots = list(empty_slots)
+    for i, square in enumerate(unplaced_squares):
+        rank = int(square / 8)
+        file = square % 8
+        dists = [(slot - file)**2 for slot in empty_slots]
+        slot = empty_slots[np.argmin(dists)]
+        empty_slots.remove(slot)
+
+        min_attacker = min_attacker_value(board, square, not side)
+        min_defender = min_attacker_value(board, square, side)
+        mobility = sum([square == from_square for from_square in from_squares]) / 27.0
+        features[slot] = [file/8, rank/8, 0, min_defender, min_attacker, mobility]
+    return features
+
+
+def pair_piece_features(board, side, from_squares):
+    features = [[0, 0, 1, 0, 0, 0]] * 6
+    for piece in range(2, 5):
+        squares = list(board.pieces(piece, side))[:2]
+        for i, square in enumerate(squares):
+            rank = int(square / 8)
+            file = square % 8
+
+            if piece == 3:  # select bishop slot based on square color
+                slot = (file + rank % 2) % 2 + (piece - 2) * 2
+            else:
+                slot = i + (piece - 2) * 2
+            min_attacker = min_attacker_value(board, square, not side)
+            min_defender = min_attacker_value(board, square, side)
+            mobility = sum([square == from_square for from_square in from_squares]) / 27.0
+            features[slot] = [file/8, rank/8, 0, min_defender, min_attacker, mobility]
+    return features
+
+
+def king_queen_features(board, side, from_squares):
+    features = [[0, 0, 1, 0, 0, 0]] * 2
+    for piece in range(5, 7):
+        slot = piece - 5
+        squares = list(board.pieces(piece, side))
+        for square in squares[:1]:
+            rank = int(square / 8)
+            file = square % 8
+            min_attacker = min_attacker_value(board, square, not side)
+            min_defender = min_attacker_value(board, square, side)
+            mobility = sum([square == from_square for from_square in from_squares]) / 27.0
+            features[slot] = [file/8, rank/8, 0, min_defender, min_attacker, mobility]
+    return features
+
+
+def min_attacker_value(board, square, side):
+    piece_type_to_value = {0: 0, 1: 1, 2: 3, 3: 3, 4: 5, 5: 9, 6: 15}
+    attacker_squares = board.attackers(side, square)
+    attacker_piece_types = []
+    for attacker_square in attacker_squares:
+        attacker_piece = board.piece_at(attacker_square)
+        attacker_piece_types.append(attacker_piece.piece_type)
+    if attacker_piece_types:
+        min_attacker_type = min(attacker_piece_types)
+    else:
+        min_attacker_type = 0
+    if side:
+        return piece_type_to_value[min_attacker_type] / 15.0
+    else:
+        return -piece_type_to_value[min_attacker_type] / 15.0
+
