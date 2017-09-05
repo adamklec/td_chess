@@ -124,7 +124,7 @@ class TDLeafAgent(AgentBase):
             return value, node
 
         elif depth <= 0 and self.env.is_quiet(node.board, depth):
-            fv = self.env.make_feature_vector2(node.board)
+            fv = self.env.make_feature_vector(node.board)
             value = value_function(fv)
             tt_row = {'value': value, 'flag': 'EXACT', 'depth': depth}
             self.ttable[hash_key] = tt_row

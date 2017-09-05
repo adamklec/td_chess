@@ -46,8 +46,8 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
             agent.sess = sess
 
-            test_period = 500
-            num_tests = 14
+            test_period = 50
+            num_tests = 5
             if job_name == "worker":
                 if not is_chief:
                     while not sess.should_stop():
