@@ -157,10 +157,9 @@ class ChessEnv(GameEnvBase):
     @classmethod
     def get_simple_value_weights(cls):
         values = np.array([1] * 8 + [3] * 4 + [5] * 2 + [9] + [15] + [-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15])
-        weights = np.zeros((161, 1))
-        weights[2:160:5, 0] = values
+        weights = np.zeros((193, 1))
+        weights[2:192:6, 0] = values
         return weights
-
 
     def zobrist_hash(self, board):
         return zobrist_hash(board)
