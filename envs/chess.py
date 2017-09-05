@@ -148,18 +148,18 @@ class ChessEnv(GameEnvBase):
     @staticmethod
     def get_feature_vector_size():
         # return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
-        return 769
-
-    @classmethod
-    def get_simple_value_weights(cls):
-        return np.array([[-1, -3, -3, -5, -9, -15, 1, 3, 3, 5, 9, 15] * 64 + [0]]).T
+        return 193
 
     # @classmethod
     # def get_simple_value_weights(cls):
-    #     values = np.array([1] * 8 + [3] * 4 + [5] * 2 + [9] + [15] + [-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15])
-    #     weights = np.zeros((161, 1))
-    #     weights[2:160:5, 0] = values
-    #     return weights
+    #     return np.array([[-1, -3, -3, -5, -9, -15, 1, 3, 3, 5, 9, 15] * 64 + [0]]).T
+
+    @classmethod
+    def get_simple_value_weights(cls):
+        values = np.array([1] * 8 + [3] * 4 + [5] * 2 + [9] + [15] + [-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15])
+        weights = np.zeros((161, 1))
+        weights[2:160:5, 0] = values
+        return weights
 
 
     def zobrist_hash(self, board):

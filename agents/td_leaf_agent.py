@@ -45,7 +45,7 @@ class TDLeafAgent(AgentBase):
         while self.env.get_reward() is None and turn_count < num_moves:
             move, leaf_value, leaf_node = self.get_move(self.env, depth=depth, return_value_node=True)
             value_seq.append(leaf_value)
-            feature_vector = self.env.make_feature_vector(leaf_node.board)
+            feature_vector = self.env.make_feature_vector2(leaf_node.board)
             grad_vars = self.sess.run(self.grad_vars, feed_dict={self.model.feature_vector_: feature_vector})
             grads, _ = zip(*grad_vars)
             grads_seq.append(grads)
@@ -124,7 +124,7 @@ class TDLeafAgent(AgentBase):
             return value, node
 
         elif depth <= 0 and self.env.is_quiet(node.board, depth):
-            fv = self.env.make_feature_vector(node.board)
+            fv = self.env.make_feature_vector2(node.board)
             value = value_function(fv)
             tt_row = {'value': value, 'flag': 'EXACT', 'depth': depth}
             self.ttable[hash_key] = tt_row

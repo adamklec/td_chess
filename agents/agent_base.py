@@ -82,8 +82,6 @@ class AgentBase(metaclass=ABCMeta):
         df = self.env.get_test(test_idx)
         total_result = 0
         for i, (_, row) in enumerate(df.iterrows()):
-            if i > 10:
-                break
             self.env.make_board(row.fen)
             move = self.get_move(self.env, depth=depth)
             result = row.c0.get(self.env.board.san(move), 0)

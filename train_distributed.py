@@ -46,8 +46,8 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
             agent.sess = sess
 
-            test_period = 50
-            num_tests = 5
+            test_period = 1000
+            num_tests = 14
             if job_name == "worker":
                 if not is_chief:
                     while not sess.should_stop():
@@ -55,7 +55,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
                         test_idx = (episode_number-1) % test_period
                         if test_idx < num_tests:
                             if random_agent_test:
-                                result = agent.random_agent_test(depth=2)
+                                result = agent.random_agent_test(depth=3)
                                 for update_op, result in zip(agent.update_random_agent_test_results, result):
                                     agent.sess.run(update_op, feed_dict={agent.test_result_: result})
 
@@ -71,7 +71,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
                                                     agent.second_player_losses]))
                                     print('-' * 100)
                             else:
-                                result = agent.test(test_idx, depth=2)
+                                result = agent.test(test_idx, depth=3)
                                 sess.run(agent.update_test_results, feed_dict={agent.test_idx_: test_idx,
                                                                                agent.test_result_: result})
                                 if agent.verbose:
@@ -87,7 +87,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
                             # pass
 
                         else:
-                            reward = agent.train(num_moves=5, depth=3)
+                            reward = agent.train(num_moves=10, depth=3)
                             if agent.verbose:
                                 print(worker_name,
                                       "EPISODE:", episode_number,
