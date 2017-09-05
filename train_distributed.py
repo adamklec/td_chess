@@ -64,10 +64,12 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
                                 if verbose:
                                     print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")
                                     print('FIRST PLAYER:',
-                                          agent.sess.run(
-                                              [agent.first_player_wins, agent.first_player_draws, agent.first_player_losses]))
+                                          sess.run([agent.first_player_wins,
+                                                    agent.first_player_draws,
+                                                    agent.first_player_losses]))
                                     print('SECOND PLAYER:',
-                                          sess.run([agent.second_player_wins, agent.second_player_draws,
+                                          sess.run([agent.second_player_wins,
+                                                    agent.second_player_draws,
                                                     agent.second_player_losses]))
                                     print('-' * 100)
                             else:
