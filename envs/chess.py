@@ -148,7 +148,7 @@ class ChessEnv(GameEnvBase):
     @staticmethod
     def get_feature_vector_size():
         # return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
-        return 161
+        return 769
 
     # @classmethod
     # def get_simple_value_weights(cls):
