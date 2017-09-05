@@ -148,18 +148,24 @@ class ChessEnv(GameEnvBase):
     @staticmethod
     def get_feature_vector_size():
         # return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
-        return 193
+        return 171
 
     # @classmethod
     # def get_simple_value_weights(cls):
     #     return np.array([[-1, -3, -3, -5, -9, -15, 1, 3, 3, 5, 9, 15] * 64 + [0]]).T
 
+    # @classmethod
+    # def get_material_value_weights(cls):
+    #     values = np.array([1] * 8 + [3] * 4 + [5] * 2 + [9] + [15] + [-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15])
+    #     weights = np.zeros((193, 1))
+    #     weights[2:192:6, 0] = values
+    #     return weights
+
     @classmethod
-    def get_simple_value_weights(cls):
-        values = np.array([1] * 8 + [3] * 4 + [5] * 2 + [9] + [15] + [-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15])
-        weights = np.zeros((193, 1))
-        weights[2:192:6, 0] = values
-        return weights
+    def get_material_value_weights(cls):
+        w = np.zeros((1, 171))
+        w[0, -10:] = [8, 6, 6, 10, 9, -8, -6, -6, -10, -9]
+        return w.T
 
     def zobrist_hash(self, board):
         return zobrist_hash(board)
@@ -183,19 +189,21 @@ class ChessEnv(GameEnvBase):
 
     @staticmethod
     def make_feature_vector2(board):
-        fv = np.zeros((1, 193))
+        fv = np.zeros((1, 171))
         from_squares = [move.from_square for move in board.legal_moves]
-        white_pawn_features = pawn_features(board, 1, from_squares)
-        white_pair_piece_features = pair_piece_features(board, 1, from_squares)
-        white_king_queen_features = king_queen_features(board, 1, from_squares)
-        black_pawn_features = pawn_features(board, 0, from_squares)
-        black_pair_piece_features = pair_piece_features(board, 0, from_squares)
-        black_king_queen_features = king_queen_features(board, 0, from_squares)
-        features = white_pawn_features + white_pair_piece_features + white_king_queen_features + black_pawn_features + black_pair_piece_features + black_king_queen_features
-
+        white_pawn_features, white_pawn_material = pawn_features(board, 1, from_squares)
+        white_pair_piece_features, white_pair_material = pair_piece_features(board, 1, from_squares)
+        white_queen_king_features, white_queen_king_material = queen_king_features(board, 1, from_squares)
+        black_pawn_features, black_pawn_material = pawn_features(board, 0, from_squares)
+        black_pair_piece_features, black_pair_material = pair_piece_features(board, 0, from_squares)
+        black_queen_king_features, black_queen_king_material = queen_king_features(board, 0, from_squares)
+        features = white_pawn_features + white_pair_piece_features + white_queen_king_features + black_pawn_features + black_pair_piece_features + black_queen_king_features
+        material = white_pawn_material + white_pair_material + white_queen_king_material[:1] + black_pawn_material + black_pair_material + black_queen_king_material[:1]
         for idx, feature in enumerate(features):
-            fv[0, 6 * idx:6 * (idx + 1)] = feature
-        fv[0, -1] = board.turn
+            fv[0, 5 * idx:5 * (idx + 1)] = feature
+        fv[0, -11] = board.turn
+
+        fv[0, -10:] = material
         return fv
 
 
@@ -215,7 +223,7 @@ def make_random_move(board):
     return board
 
 
-def simple_value_from_fen(fen):
+def material_value_from_fen(fen):
     fen = fen.split()[0]
     value = 0
 
@@ -234,8 +242,8 @@ def simple_value_from_fen(fen):
     return value
 
 
-def simple_value_from_board(board):
-    value = simple_value_from_fen(board.fen())
+def material_value_from_board(board):
+    value = material_value_from_fen(board.fen())
     return np.array([[value]])
 
 
@@ -268,12 +276,16 @@ def parse_tests(filename):
     df = df.set_index('id')
     return df
 
+max_mobilities = {1: 3.0, 2: 8.0, 3: 13.0, 4: 14.0, 5: 27.0, 6: 8.0}
+
 
 def pawn_features(board, side, from_squares):
-    features = [[0, 0, 1, 0, 0, 0]]*8
+    features = [[0, 0, 0, 0, 0]] * 8
+    material = []
     empty_slots = set(range(8))
     unplaced_squares = set()
     squares = set(board.pieces(1, side))
+    material.append(len(squares)/8.0)
     for i, square in enumerate(squares):
         file = square % 8
         if file in empty_slots:
@@ -284,7 +296,7 @@ def pawn_features(board, side, from_squares):
             min_attacker = min_attacker_value(board, square, not side)
             min_defender = min_attacker_value(board, square, side)
             mobility = sum([square == from_square for from_square in from_squares]) / 27.0
-            features[slot] = [file/8, rank/8, 0, min_defender, min_attacker, mobility]
+            features[slot] = [file/8, rank/8, min_defender, min_attacker, mobility]
         else:
             unplaced_squares.add(square)
 
@@ -298,15 +310,17 @@ def pawn_features(board, side, from_squares):
 
         min_attacker = min_attacker_value(board, square, not side)
         min_defender = min_attacker_value(board, square, side)
-        mobility = sum([square == from_square for from_square in from_squares]) / 27.0
-        features[slot] = [file/8, rank/8, 0, min_defender, min_attacker, mobility]
-    return features
+        mobility = sum([square == from_square for from_square in from_squares]) / max_mobilities[1]
+        features[slot] = [file/8, rank/8, min_defender, min_attacker, mobility]
+    return features, material
 
 
 def pair_piece_features(board, side, from_squares):
-    features = [[0, 0, 1, 0, 0, 0]] * 6
+    features = [[0, 0, 0, 0, 0]] * 6
+    material = []
     for piece in range(2, 5):
         squares = list(board.pieces(piece, side))[:2]
+        material.append(len(squares)/2.0)
         for i, square in enumerate(squares):
             rank = int(square / 8)
             file = square % 8
@@ -317,24 +331,26 @@ def pair_piece_features(board, side, from_squares):
                 slot = i + (piece - 2) * 2
             min_attacker = min_attacker_value(board, square, not side)
             min_defender = min_attacker_value(board, square, side)
-            mobility = sum([square == from_square for from_square in from_squares]) / 27.0
-            features[slot] = [file/8, rank/8, 0, min_defender, min_attacker, mobility]
-    return features
+            mobility = sum([square == from_square for from_square in from_squares]) / max_mobilities[piece]
+            features[slot] = [file/8, rank/8, min_defender, min_attacker, mobility]
+    return features, material
 
 
-def king_queen_features(board, side, from_squares):
-    features = [[0, 0, 1, 0, 0, 0]] * 2
+def queen_king_features(board, side, from_squares):
+    features = [[0, 0, 0, 0, 0]] * 2
+    material = []
     for piece in range(5, 7):
         slot = piece - 5
         squares = list(board.pieces(piece, side))
+        material.append(len(squares))
         for square in squares[:1]:
             rank = int(square / 8)
             file = square % 8
             min_attacker = min_attacker_value(board, square, not side)
             min_defender = min_attacker_value(board, square, side)
-            mobility = sum([square == from_square for from_square in from_squares]) / 27.0
-            features[slot] = [file/8, rank/8, 0, min_defender, min_attacker, mobility]
-    return features
+            mobility = sum([square == from_square for from_square in from_squares]) / max_mobilities[piece]
+            features[slot] = [file/8, rank/8, min_defender, min_attacker, mobility]
+    return features, material
 
 
 def min_attacker_value(board, square, side):

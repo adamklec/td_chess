@@ -5,7 +5,7 @@ from envs.chess import ChessEnv
 class ChessValueModel:
     def __init__(self):
         fv_size = ChessEnv.get_feature_vector_size()
-        simple_value_weights = ChessEnv.get_simple_value_weights()
+        simple_value_weights = ChessEnv.get_material_value_weights()
         with tf.variable_scope('neural_network'):
             with tf.variable_scope('simple_value_weights'):
                 simple_value_weights = tf.get_variable('simple_value_weights',
@@ -25,9 +25,9 @@ class ChessValueModel:
                 W_3 = tf.get_variable('W_3', shape=[1000, 1], initializer=tf.contrib.layers.xavier_initializer())
                 learned_value = tf.matmul(hidden_2, W_3)
 
-            self.simple_value = tf.matmul(self.feature_vector_, simple_value_weights)
+            self.simple_value = tf.matmul(self.feature_vector_, simple_value_weights) / 5.0
 
-            self.value = tf.tanh((self.simple_value + learned_value) / 5.0 )
+            self.value = tf.tanh(self.simple_value + learned_value)
             self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                          scope=tf.get_variable_scope().name)
 
