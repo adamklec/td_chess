@@ -20,20 +20,26 @@ class AgentBase(metaclass=ABCMeta):
                 tf.summary.histogram(tvar.op.name, tvar)
 
             self.update_count = tf.train.get_or_create_global_step()
-            self.episode_count = tf.Variable(0, trainable=False)
-            self.increment_episode_count = tf.assign_add(self.episode_count, 1, use_locking=True)
+            self.train_episode_count = tf.Variable(0, trainable=False)
+            self.increment_train_episode_count = tf.assign_add(self.train_episode_count, 1, use_locking=True)
+            self.test_episode_count = tf.Variable(0, trainable=False)
+            self.increment_test_episode_count = tf.assign_add(self.test_episode_count, 1, use_locking=True)
 
             self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
+            self.row_idx_ = tf.placeholder(tf.int32, name='row_idx_')
             self.test_result_ = tf.placeholder(tf.int32, name='test_result_')
 
             with tf.name_scope('test_results'):
-                self.test_results = tf.Variable(tf.zeros((14,), dtype=tf.int32), name="test_results", trainable=False)
+                self.test_results = tf.Variable(tf.zeros((1400,), dtype=tf.int32), name="test_results", trainable=False)
+                self.test_results_reduced = tf.reduce_sum(tf.reshape(self.test_results, (14, 100)), axis=1)
                 for i in range(14):
-                    tf.summary.scalar("test_" + str(i), tf.reduce_sum(tf.slice(self.test_results, [i], [1])))
+                    tf.summary.scalar("test_" + str(i), tf.reduce_sum(tf.slice(self.test_results, [i * 100], [100])))
                 test_total = tf.reduce_sum(self.test_results)
                 tf.summary.scalar("test_total", test_total)
 
-                self.update_test_results = tf.scatter_update(self.test_results, self.test_idx_, self.test_result_)
+                self.update_test_results = tf.scatter_update(self.test_results,
+                                                             self.test_idx_*100 + self.row_idx_,
+                                                             self.test_result_)
 
             with tf.name_scope('random_agent_test_results'):
 
@@ -76,12 +82,23 @@ class AgentBase(metaclass=ABCMeta):
     def get_move_function(self, depth):
         return NotImplemented
 
+    def test2(self, d, depth=1):
+        self.killers = dict()
+        self.ttable = dict()
+        self.env.make_board(d['fen'])
+        move = self.get_move(self.env, depth=depth)
+        result = d['c0'].get(self.env.board.san(move), 0)
+        return result
+
+
     def test(self, test_idx, depth=1):
         self.killers = dict()
         self.ttable = dict()
         df = self.env.get_test(test_idx)
         total_result = 0
         for i, (_, row) in enumerate(df.iterrows()):
+            if i > 5:
+                break
             self.env.make_board(row.fen)
             move = self.get_move(self.env, depth=depth)
             result = row.c0.get(self.env.board.san(move), 0)

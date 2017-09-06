@@ -14,15 +14,16 @@ def main():
         network = ChessValueModel()
         env = ChessEnv()
 
-        agent = TDLeafAgent('tester_0', network, env, verbose=True)
+        agent = TDLeafAgent('tester_0', network, env, verbose=2)
         agent.sess = sess
         sess.run(tf.global_variables_initializer())
 
-        cProfile.runctx('agent.test(10, depth=3)', globals(), locals())
+        cProfile.runctx('agent.test(0, depth=3)', globals(), locals())
         # for i in range(14):
-        # agent.test(10, depth=3)
-        # test_results = sess.run(agent.test_results)
-        # print(sum(test_results))
+        #     result = agent.test(i, depth=2)
+        #     print(i, result)
+        #     test_results = sess.run(agent.test_results)
+        #     print(sum(test_results))
 
 if __name__ == "__main__":
     t0 = time.time()
