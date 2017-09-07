@@ -109,7 +109,6 @@ if __name__ == "__main__":
     that_ip = args.ips[0]
 
     ps_hosts = [that_ip + ':' + str(2222 + i) for i in range(5)]
-
     worker_hosts = [ip + ':' + str(3333 + i + j*40) for j, ip in enumerate(args.ips) for i in range(40)]
 
     ckpt_dir = "./log/" + str(int(time.time()))
@@ -127,7 +126,7 @@ if __name__ == "__main__":
     for task_idx, worker_host in enumerate(worker_hosts):
         if this_ip in worker_host:
             env = ChessEnv()
-            p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 2))
+            p = Process(target=work, args=(env, 'worker', task_idx + 40, cluster_spec, ckpt_dir, 2))
             processes.append(p)
             p.start()
             time.sleep(1)
