@@ -5,29 +5,7 @@ import time
 import tensorflow as tf
 from chess_value_model import ChessValueModel
 import argparse
-from os import listdir
-from os.path import isfile, join
-import re
 
-def parse_test_string(string):
-    data = [s for s in string.split('; ')]
-    d = dict()
-    d['fen'] = data[0].split(' bm ')[0] + " 0 0"
-    d['bm'] = data[0].split(' bm ')[1]
-
-    for c in data[1:]:
-        c = c.replace('"', '')
-        c = c.replace(';', '')
-        item = c.split(maxsplit=1, sep=" ")
-        d[item[0]] = item[1]
-
-    move_rewards = {}
-    answers = d['c0'].split(',')
-    for answer in answers:
-        move_reward = answer.split('=')
-        move_rewards[move_reward[0].strip()] = int(move_reward[1])
-    d['c0'] = move_rewards
-    return d
 
 def work(env, job_name, task_index, cluster, log_dir, verbose):
 
@@ -42,6 +20,8 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
 
+            # fv_size = env.get_feature_vector_size()
+            # network = ValueModel(fv_size)
             network = ChessValueModel()
 
             opt = tf.train.AdamOptimizer()
@@ -53,17 +33,8 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                                 env,
                                 opt=opt,
                                 verbose=verbose)
-
-            test_path = "./chess_tests/"
-            test_filenames = sorted([f for f in listdir(test_path) if isfile(join(test_path, f))])
-            test_strings = []
-            for filename in test_filenames:
-                with open(test_path + filename) as f:
-                    for string in f:
-                        test_strings.append(string.strip())
-
             summary_op = tf.summary.merge_all()
-            is_chief = (task_index == 0)
+            is_chief = task_index == 0
             sync_replicas_hook = opt.make_session_run_hook(is_chief)
 
         with tf.train.MonitoredTrainingSession(master=server.target,
@@ -74,46 +45,26 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
             agent.sess = sess
 
-            num_tests = 1400
             while not sess.should_stop():
-                episode_number = sess.run(agent.increment_test_episode_count)
-                test_idx = (episode_number-1) % num_tests
-                d = parse_test_string(test_strings[test_idx])
-                result = agent.test2(d, depth=3)
-
-                filename = test_filenames[test_idx]
-                matches = re.split('-|\.', filename)
-                row_idx = int(matches[0])
-                test_idx = int(matches[1][-2:]) - 1
-
-                sess.run(agent.update_test_results, feed_dict={agent.test_idx_: test_idx,
-                                                               agent.row_idx_: row_idx,
-                                                               agent.test_result_: result})
+                episode_number = sess.run(agent.increment_train_episode_count)
+                reward = agent.train(num_moves=10, depth=3)
                 if agent.verbose:
-                    test_results_reduced = agent.sess.run(agent.test_results_reduced)
                     print(worker_name,
                           "EPISODE:", episode_number,
                           "UPDATE:", sess.run(agent.update_count),
-                          "TEST INDEX:", test_idx,
-                          "FILENAME:", filename,
-                          "RESULT:", result)
-                    print(test_results_reduced, "\n", "TOTAL:", sum(test_results_reduced))
+                          "REWARD:", reward)
                     print('-' * 100)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("run_name")
+    parser.add_argument("idx")
     parser.add_argument("ips", nargs='+')
     args = parser.parse_args()
-    this_ip = args.ips[1]
-    that_ip = args.ips[0]
+    this_ip = args.ips[args.idx]
 
-    # ps_hosts = [that_ip + ':' + str(2222 + i) for i in range(5)] + [this_ip + ':' + str(2222 + i) for i in range(5)]
-    # worker_hosts = [that_ip + ':' + str(3333 + i) for i in range(40)] + [this_ip + ':' + str(3333 + i) for i in range(40)]
-
-    ps_hosts = [this_ip + ':' + str(2222 + i) for i in range(5)]
-    worker_hosts = [this_ip + ':' + str(3333 + i) for i in range(40)]
+    ps_hosts = [ip + ':' + str(2222 + i) for ip in args.ips for i in range(5)]
+    worker_hosts = [ip + ':' + str(3333 + i) for ip in args.ips for i in range(40)]
 
     ckpt_dir = "./log/" + args.run_name
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
@@ -130,7 +81,7 @@ if __name__ == "__main__":
     for task_idx, worker_host in enumerate(worker_hosts):
         if this_ip in worker_host:
             env = ChessEnv()
-            p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 2))
+            p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 1))
             processes.append(p)
             p.start()
             time.sleep(1)
