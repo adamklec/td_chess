@@ -61,7 +61,7 @@ if __name__ == "__main__":
     parser.add_argument("idx")
     parser.add_argument("ips", nargs='+')
     args = parser.parse_args()
-    this_ip = args.ips[args.idx]
+    this_ip = args.ips[int(args.idx)]
 
     ps_hosts = [ip + ':' + str(2222 + i) for ip in args.ips for i in range(5)]
     worker_hosts = [ip + ':' + str(3333 + i) for ip in args.ips for i in range(40)]
