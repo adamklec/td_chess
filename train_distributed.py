@@ -39,7 +39,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
-                                               checkpoint_dir=log_dir,
+                                               # checkpoint_dir=log_dir,
                                                save_summaries_steps=1,
                                                hooks=[sync_replicas_hook],
                                                scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
