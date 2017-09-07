@@ -63,7 +63,8 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                         test_strings.append(string.strip())
 
             summary_op = tf.summary.merge_all()
-            is_chief = task_index == 0
+            # is_chief = task_index == 0
+            is_chief = False
             sync_replicas_hook = opt.make_session_run_hook(is_chief)
 
         with tf.train.MonitoredTrainingSession(master=server.target,

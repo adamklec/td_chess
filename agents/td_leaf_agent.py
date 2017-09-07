@@ -28,7 +28,7 @@ class TDLeafAgent(AgentBase):
 
     def train(self, num_moves=10, depth=1):
         lamda = 0.7
-        self.env.random_position(episode_count=self.sess.run(self.episode_count))
+        self.env.random_position(episode_count=self.sess.run(self.train_episode_count))
         # self.env.set_board(chess.Board("1k2r3/1p1bP3/2p2p1Q/Ppb5/4Rp1P/2q2N1P/5PB1/6K1 b - - 0 1"))
         self.ttable = dict()
         self.killers = dict()
