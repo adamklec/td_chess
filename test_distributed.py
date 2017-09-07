@@ -63,8 +63,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                         test_strings.append(string.strip())
 
             summary_op = tf.summary.merge_all()
-            # is_chief = task_index == 0
-            is_chief = False
+            is_chief = (task_index == 0)
             sync_replicas_hook = opt.make_session_run_hook(is_chief)
 
         with tf.train.MonitoredTrainingSession(master=server.target,
@@ -102,7 +101,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("idx")
+    parser.add_argument("run_name")
     parser.add_argument("ips", nargs='+')
     args = parser.parse_args()
     this_ip = args.ips[1]
@@ -111,7 +110,7 @@ if __name__ == "__main__":
     ps_hosts = [that_ip + ':' + str(2222 + i) for i in range(5)] + [this_ip + ':' + str(2222 + i) for i in range(5)]
     worker_hosts = [that_ip + ':' + str(3333 + i + 40) for i in range(40)] + [this_ip + ':' + str(3333 + i) for i in range(40)]
 
-    ckpt_dir = "./log/" + str(int(time.time()))
+    ckpt_dir = "./log/" + args.run_name
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
     processes = []

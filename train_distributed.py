@@ -58,7 +58,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("idx")
+    parser.add_argument("run_name")
     parser.add_argument("ips", nargs='+')
     args = parser.parse_args()
     this_ip = args.ips[0]
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     ps_hosts = [this_ip + ':' + str(2222 + i) for i in range(5)] + [that_ip + ':' + str(2222 + i) for i in range(5)]
     worker_hosts = [this_ip + ':' + str(3333 + i + 40) for i in range(40)] + [that_ip + ':' + str(3333 + i) for i in range(40)]
 
-    ckpt_dir = "./log/" + str(int(time.time()))
+    ckpt_dir = "./log/" + args.run_name
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
     processes = []
