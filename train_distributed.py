@@ -61,10 +61,11 @@ if __name__ == "__main__":
     parser.add_argument("idx")
     parser.add_argument("ips", nargs='+')
     args = parser.parse_args()
-    this_ip = args.ips[int(args.idx)]
+    this_ip = args.ips[0]
+    that_ip = args.ips[1]
 
-    ps_hosts = [this_ip + ':' + str(2222 + i) for i in range(5)]
-    worker_hosts = [ip + ':' + str(3333 + i + j*40) for j, ip in enumerate(args.ips) for i in range(40)]
+    ps_hosts = [this_ip + ':' + str(2222 + i) for i in range(5)] + [that_ip + ':' + str(2222 + i) for i in range(5)]
+    worker_hosts = [this_ip + ':' + str(3333 + i + 40) for i in range(40)] + [that_ip + ':' + str(3333 + i) for i in range(40)]
 
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})

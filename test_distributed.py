@@ -108,8 +108,8 @@ if __name__ == "__main__":
     this_ip = args.ips[1]
     that_ip = args.ips[0]
 
-    ps_hosts = [that_ip + ':' + str(2222 + i) for i in range(5)]
-    worker_hosts = [ip + ':' + str(3333 + i + j*40) for j, ip in enumerate(args.ips) for i in range(40)]
+    ps_hosts = [that_ip + ':' + str(2222 + i) for i in range(5)] + [this_ip + ':' + str(2222 + i) for i in range(5)]
+    worker_hosts = [that_ip + ':' + str(3333 + i + 40) for i in range(40)] + [this_ip + ':' + str(3333 + i) for i in range(40)]
 
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
     for task_idx, ps_host in enumerate(ps_hosts):
         if this_ip in ps_host:
-            p = Process(target=work, args=(None, 'ps', task_idx, cluster_spec, ckpt_dir, 2))
+            p = Process(target=work, args=(None, 'ps', task_idx, cluster_spec, ckpt_dir, 1))
             processes.append(p)
             p.start()
             time.sleep(1)
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     for task_idx, worker_host in enumerate(worker_hosts):
         if this_ip in worker_host:
             env = ChessEnv()
-            p = Process(target=work, args=(env, 'worker', task_idx + 40, cluster_spec, ckpt_dir, 2))
+            p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 2))
             processes.append(p)
             p.start()
             time.sleep(1)
