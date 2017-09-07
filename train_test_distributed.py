@@ -50,50 +50,48 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
             num_tests = 14
             while not sess.should_stop():
                 episode_number = sess.run(agent.increment_train_episode_count)
-                test_idx = (episode_number-1) % test_period
-                if test_idx < num_tests:
-                    if random_agent_test:
-                        result = agent.random_agent_test(depth=3)
-                        for update_op, result in zip(agent.update_random_agent_test_results, result):
-                            agent.sess.run(update_op, feed_dict={agent.test_result_: result})
+                # test_idx = (episode_number-1) % test_period
+                # if test_idx < num_tests:
+                #     if random_agent_test:
+                #         result = agent.random_agent_test(depth=3)
+                #         for update_op, result in zip(agent.update_random_agent_test_results, result):
+                #             agent.sess.run(update_op, feed_dict={agent.test_result_: result})
+                #
+                #         global_episode_count = sess.run(agent.update_count)
+                #
+                #         if verbose:
+                #             print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")
+                #             print('FIRST PLAYER:',
+                #                   sess.run([agent.first_player_wins,
+                #                             agent.first_player_draws,
+                #                             agent.first_player_losses]))
+                #             print('SECOND PLAYER:',
+                #                   sess.run([agent.second_player_wins,
+                #                             agent.second_player_draws,
+                #                             agent.second_player_losses]))
+                #             print('-' * 100)
+                #     else:
+                #         result = agent.test(test_idx, depth=3)
+                #         sess.run(agent.update_test_results, feed_dict={agent.test_idx_: test_idx,
+                #                                                        agent.test_result_: result})
+                #         if agent.verbose:
+                #             test_results = agent.sess.run(agent.test_results)
+                #             print(worker_name,
+                #                   "EPISODE:", episode_number,
+                #                   "UPDATE:", sess.run(agent.update_count),
+                #                   "TEST INDEX:", test_idx,
+                #                   "RESULT:", result)
+                #             print(test_results, "\n", "TOTAL:", sum(test_results))
+                #             print('-' * 100)
 
-                        global_episode_count = sess.run(agent.update_count)
-
-                        if verbose:
-                            print("EPISODE:", global_episode_count, "RANDOM AGENT TEST")
-                            print('FIRST PLAYER:',
-                                  sess.run([agent.first_player_wins,
-                                            agent.first_player_draws,
-                                            agent.first_player_losses]))
-                            print('SECOND PLAYER:',
-                                  sess.run([agent.second_player_wins,
-                                            agent.second_player_draws,
-                                            agent.second_player_losses]))
-                            print('-' * 100)
-                    else:
-                        result = agent.test(test_idx, depth=3)
-                        sess.run(agent.update_test_results, feed_dict={agent.test_idx_: test_idx,
-                                                                       agent.test_result_: result})
-                        if agent.verbose:
-                            test_results = agent.sess.run(agent.test_results)
-                            print(worker_name,
-                                  "EPISODE:", episode_number,
-                                  "UPDATE:", sess.run(agent.update_count),
-                                  "TEST INDEX:", test_idx,
-                                  "RESULT:", result)
-                            print(test_results, "\n", "TOTAL:", sum(test_results))
-                            print('-' * 100)
-
-                    # pass
-
-                else:
-                    reward = agent.train(num_moves=10, depth=3)
-                    if agent.verbose:
-                        print(worker_name,
-                              "EPISODE:", episode_number,
-                              "UPDATE:", sess.run(agent.update_count),
-                              "REWARD:", reward)
-                        print('-' * 100)
+                # else:
+                reward = agent.train(num_moves=10, depth=3)
+                if agent.verbose:
+                    print(worker_name,
+                          "EPISODE:", episode_number,
+                          "UPDATE:", sess.run(agent.update_count),
+                          "REWARD:", reward)
+                    print('-' * 100)
 
 
 if __name__ == "__main__":

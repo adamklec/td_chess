@@ -16,10 +16,10 @@ class ChessEnv(GameEnvBase):
         self.board_generator = self.random_board_generator(pgn)
 
         self.tests = []
-        path = "./old_chess_tests/"
-        filenames = ['STS%s.epd' % str(i).zfill(2) for i in range(1, 15)]
-        for filename in filenames:
-            self.tests.append((parse_tests(path + filename), filename))
+        # path = "./old_chess_tests/"
+        # filenames = ['STS%s.epd' % str(i).zfill(2) for i in range(1, 15)]
+        # for filename in filenames:
+        #     self.tests.append((parse_tests(path + filename), filename))
 
     def get_null_move(self):
         return chess.Move.null()
