@@ -41,38 +41,38 @@ class AgentBase(metaclass=ABCMeta):
                                                              self.test_idx_*100 + self.row_idx_,
                                                              self.test_result_)
 
-            with tf.name_scope('random_agent_test_results'):
-
-                self.first_player_wins = tf.Variable(0, name="first_player_wins", trainable=False)
-                self.first_player_draws = tf.Variable(0, name="first_player_draws", trainable=False)
-                self.first_player_losses = tf.Variable(0, name="first_player_losses", trainable=False)
-
-                self.second_player_wins = tf.Variable(0, name="second_player_wins", trainable=False)
-                self.second_player_draws = tf.Variable(0, name="second_player_draws", trainable=False)
-                self.second_player_losses = tf.Variable(0, name="second_player_losses", trainable=False)
-
-                self.update_first_player_wins = tf.assign(self.first_player_wins, self.test_result_)
-                self.update_first_player_draws = tf.assign(self.first_player_draws, self.test_result_)
-                self.update_first_player_losses = tf.assign(self.first_player_losses, self.test_result_)
-
-                self.update_second_player_wins = tf.assign(self.second_player_wins, self.test_result_)
-                self.update_second_player_draws = tf.assign(self.second_player_draws, self.test_result_)
-                self.update_second_player_losses = tf.assign(self.second_player_losses, self.test_result_)
-
-                self.update_random_agent_test_results = [self.update_first_player_wins,
-                                                         self.update_first_player_draws,
-                                                         self.update_first_player_losses,
-                                                         self.update_second_player_wins,
-                                                         self.update_second_player_draws,
-                                                         self.update_second_player_losses]
-
-                tf.summary.scalar("first_player_wins", self.first_player_wins)
-                tf.summary.scalar("first_player_draws", self.first_player_draws)
-                tf.summary.scalar("first_player_losses", self.first_player_losses)
-
-                tf.summary.scalar("second_player_wins", self.second_player_wins)
-                tf.summary.scalar("second_player_draws", self.second_player_draws)
-                tf.summary.scalar("second_player_losses", self.second_player_losses)
+            # with tf.name_scope('random_agent_test_results'):
+            #
+            #     self.first_player_wins = tf.Variable(0, name="first_player_wins", trainable=False)
+            #     self.first_player_draws = tf.Variable(0, name="first_player_draws", trainable=False)
+            #     self.first_player_losses = tf.Variable(0, name="first_player_losses", trainable=False)
+            #
+            #     self.second_player_wins = tf.Variable(0, name="second_player_wins", trainable=False)
+            #     self.second_player_draws = tf.Variable(0, name="second_player_draws", trainable=False)
+            #     self.second_player_losses = tf.Variable(0, name="second_player_losses", trainable=False)
+            #
+            #     self.update_first_player_wins = tf.assign(self.first_player_wins, self.test_result_)
+            #     self.update_first_player_draws = tf.assign(self.first_player_draws, self.test_result_)
+            #     self.update_first_player_losses = tf.assign(self.first_player_losses, self.test_result_)
+            #
+            #     self.update_second_player_wins = tf.assign(self.second_player_wins, self.test_result_)
+            #     self.update_second_player_draws = tf.assign(self.second_player_draws, self.test_result_)
+            #     self.update_second_player_losses = tf.assign(self.second_player_losses, self.test_result_)
+            #
+            #     self.update_random_agent_test_results = [self.update_first_player_wins,
+            #                                              self.update_first_player_draws,
+            #                                              self.update_first_player_losses,
+            #                                              self.update_second_player_wins,
+            #                                              self.update_second_player_draws,
+            #                                              self.update_second_player_losses]
+            #
+            #     tf.summary.scalar("first_player_wins", self.first_player_wins)
+            #     tf.summary.scalar("first_player_draws", self.first_player_draws)
+            #     tf.summary.scalar("first_player_losses", self.first_player_losses)
+            #
+            #     tf.summary.scalar("second_player_wins", self.second_player_wins)
+            #     tf.summary.scalar("second_player_draws", self.second_player_draws)
+            #     tf.summary.scalar("second_player_losses", self.second_player_losses)
 
     @abstractmethod
     def get_move(self, env):
