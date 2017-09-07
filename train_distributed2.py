@@ -66,7 +66,7 @@ if __name__ == "__main__":
     ps_hosts = [ip + ':' + str(2222 + i) for ip in args.ips for i in range(5)]
     worker_hosts = [ip + ':' + str(3333 + i) for ip in args.ips for i in range(40)]
 
-    ckpt_dir = "./log/" + args.run_name
+    ckpt_dir = ""#""./log/" + args.run_name
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 
     processes = []
