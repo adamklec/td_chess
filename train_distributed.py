@@ -42,9 +42,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
             summary_op = tf.summary.merge_all()
             is_chief = task_index == 0
             sync_replicas_hook = opt.make_session_run_hook(is_chief)
-            saver = tf.train.Saver(sharded=True)
-            scaffold = tf.train.Scaffold(summary_op=summary_op,
-                                         saver=saver)
+            scaffold = tf.train.Scaffold(summary_op=summary_op)
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
@@ -73,7 +71,8 @@ if __name__ == "__main__":
     this_ip = args.ips[0]
     that_ip = args.ips[1]
 
-    ps_hosts = [this_ip + ':' + str(2222 + i) for i in range(5)] + [that_ip + ':' + str(2222 + i) for i in range(5)]
+    # ps_hosts = [this_ip + ':' + str(2222 + i) for i in range(5)] + [that_ip + ':' + str(2222 + i) for i in range(5)]
+    ps_hosts = [this_ip + ':2222']
     worker_hosts = [this_ip + ':' + str(3333 + i) for i in range(40)] + [that_ip + ':' + str(3333 + i) for i in range(40)]
 
     ckpt_dir = "./log/" + args.run_name
