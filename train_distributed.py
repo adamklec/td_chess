@@ -56,8 +56,9 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                         print(worker_name,
                               "EPISODE:", episode_number,
                               "APPLYING GRADS")
-                        sess.run([agent.apply_grads, agent.reset_episodes_since_apply_grad],
+                        sess.run(agent.apply_grads,
                                  feed_dict={grad_: grad for grad_, grad in zip(agent.grad_s, agent.grads)})
+                        sess.run([agent.reset_episodes_since_apply_grad, agent.reset_grad_accums_op])
                     else:
                         episode_number = sess.run(agent.increment_train_episode_count)
                         reward = agent.train(num_moves=10, depth=3)
