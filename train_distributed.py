@@ -34,7 +34,6 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                                 network,
                                 local_network,
                                 env,
-                                opt=opt,
                                 verbose=verbose)
             summary_op = tf.summary.merge_all()
             is_chief = task_index == 0
