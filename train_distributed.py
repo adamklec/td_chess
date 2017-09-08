@@ -44,12 +44,19 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
             sync_replicas_hook = opt.make_session_run_hook(is_chief)
             scaffold = tf.train.Scaffold(summary_op=summary_op)
 
+        init_token_op = opt.get_init_tokens_op()
+        chief_queue_runner = opt.get_chief_queue_runner()
+
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=1,
                                                hooks=[sync_replicas_hook],
                                                scaffold=scaffold) as sess:
+            if is_chief:
+                tf.train.start_queue_runners(sess, [chief_queue_runner])
+                sess.run(init_token_op)
+
             agent.sess = sess
 
             while not sess.should_stop():
