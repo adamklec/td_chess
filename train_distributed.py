@@ -59,15 +59,15 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                         sess.run(agent.apply_grads,
                                  feed_dict={grad_: grad for grad_, grad in zip(agent.grad_s, agent.grads)})
                         sess.run([agent.reset_episodes_since_apply_grad, agent.reset_grad_accums_op])
-                    else:
-                        episode_number = sess.run(agent.increment_train_episode_count)
-                        reward = agent.train(num_moves=10, depth=3)
-                        if agent.verbose:
-                            print(worker_name,
-                                  "EPISODE:", episode_number,
-                                  "UPDATE:", sess.run(agent.update_count),
-                                  "REWARD:", reward)
-                            print('-' * 100)
+                else:
+                    episode_number = sess.run(agent.increment_train_episode_count)
+                    reward = agent.train(num_moves=10, depth=3)
+                    if agent.verbose:
+                        print(worker_name,
+                              "EPISODE:", episode_number,
+                              "UPDATE:", sess.run(agent.update_count),
+                              "REWARD:", reward)
+                        print('-' * 100)
 
 
 if __name__ == "__main__":
