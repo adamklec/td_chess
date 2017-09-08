@@ -42,13 +42,16 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
             summary_op = tf.summary.merge_all()
             is_chief = task_index == 0
             sync_replicas_hook = opt.make_session_run_hook(is_chief)
+            saver = tf.train.Saver(sharded=True)
+            scaffold = tf.train.Scaffold(summary_op=summary_op,
+                                         saver=saver)
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=1,
                                                hooks=[sync_replicas_hook],
-                                               scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
+                                               scaffold=scaffold) as sess:
             agent.sess = sess
 
             while not sess.should_stop():
