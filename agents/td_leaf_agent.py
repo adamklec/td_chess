@@ -10,15 +10,31 @@ class TDLeafAgent(AgentBase):
                  model,
                  local_model,
                  env,
-                 opt=None,
                  verbose=False):
 
         super().__init__(name, model, local_model, env, verbose)
 
-        if opt is None:
-            self.opt = tf.train.AdamOptimizer()
-        else:
-            self.opt = opt
+        self.episodes_since_apply_grad = tf.Variable(0, trainable=False, name="episodes_since_apply_grad")
+        self.increment_episodes_since_apply_grad = tf.assign_add(self.episodes_since_apply_grad, 1, use_locking=True, name="increment_episodes_since_apply_grad")
+        self.reset_episodes_since_apply_grad = tf.assign(self.episodes_since_apply_grad, 0, use_locking=True, name="reset_episodes_since_apply_grad")
+
+        update_grad_accum_ops = []
+        reset_grad_accum_ops = []
+        self.grad_accum_s = []
+
+        for tvar in self.model.trainable_variables:
+            grad_accum = tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name + "_grad_accum")
+            grad_accum_ = tf.placeholder(tf.float32, shape=tvar.get_shape(), name=tvar.op.name + "_grad_accum_")
+            self.grad_accum_s.append(grad_accum_)
+            update_grad_accum_op = tf.assign_add(grad_accum, grad_accum_)
+            update_grad_accum_ops.append(update_grad_accum_op)
+            reset_grad_accum_op = tf.assign(grad_accum, tf.zeros_like(tvar))
+            reset_grad_accum_ops.append(reset_grad_accum_op)
+
+        self.update_grad_accums_op = tf.group(*update_grad_accum_ops)
+        self.reset_grad_accums_op = tf.group(*reset_grad_accum_ops)
+
+        self.opt = tf.train.AdamOptimizer()
 
         self.grad_vars = self.opt.compute_gradients(self.local_model.value, self.local_model.trainable_variables)
 
@@ -75,7 +91,9 @@ class TDLeafAgent(AgentBase):
                 row['depth'] = row['depth'] + 1
                 self.ttable[key] = row
 
-        self.sess.run(self.apply_grads, feed_dict={grad_: grad_accum for grad_, grad_accum in zip(self.grad_s, grad_accums)})
+        self.sess.run([self.update_grad_accums_op self.increment_episodes_since_apply_grad],
+                      feed_dict={grad_accum_: grad_accum
+                                 for grad_accum_, grad_accum in zip(self.grad_accum_s, grad_accums)})
 
         # selected_moves_string = ','.join([str(m) for m in selected_moves])
 

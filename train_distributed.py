@@ -29,9 +29,6 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
             # network = ValueModel(fv_size)
             network = ChessValueModel()
 
-            opt = tf.train.AdamOptimizer()
-            opt = tf.train.SyncReplicasOptimizer(opt, replicas_to_aggregate=100, total_num_replicas=40)
-
             worker_name = 'worker_%03d' % task_index
             agent = TDLeafAgent(worker_name,
                                 network,
@@ -41,33 +38,31 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                                 verbose=verbose)
             summary_op = tf.summary.merge_all()
             is_chief = task_index == 0
-            sync_replicas_hook = opt.make_session_run_hook(is_chief)
             scaffold = tf.train.Scaffold(summary_op=summary_op)
-
-        init_token_op = opt.get_init_tokens_op()
-        chief_queue_runner = opt.get_chief_queue_runner()
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=1,
-                                               hooks=[sync_replicas_hook],
                                                scaffold=scaffold) as sess:
-            if is_chief:
-                tf.train.start_queue_runners(sess, [chief_queue_runner])
-                sess.run(init_token_op)
 
             agent.sess = sess
 
             while not sess.should_stop():
-                episode_number = sess.run(agent.increment_train_episode_count)
-                reward = agent.train(num_moves=10, depth=3)
-                if agent.verbose:
-                    print(worker_name,
-                          "EPISODE:", episode_number,
-                          "UPDATE:", sess.run(agent.update_count),
-                          "REWARD:", reward)
-                    print('-' * 100)
+                if is_chief:
+                    episodes_since_apply_grads = sess.run(agent.episodes_since_apply_grad)
+                    if episodes_since_apply_grads > 100:
+                        sess.run([agent.apply_grads, agent.reset_episodes_since_apply_grad],
+                                 feed_dict={grad_: grad for grad_, grad in zip(agent.grad_s, agent.grads)})
+                    else:
+                        episode_number = sess.run(agent.increment_train_episode_count)
+                        reward = agent.train(num_moves=10, depth=3)
+                        if agent.verbose:
+                            print(worker_name,
+                                  "EPISODE:", episode_number,
+                                  "UPDATE:", sess.run(agent.update_count),
+                                  "REWARD:", reward)
+                            print('-' * 100)
 
 
 if __name__ == "__main__":
