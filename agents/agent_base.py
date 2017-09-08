@@ -5,17 +5,18 @@ from collections import Counter
 
 class AgentBase(metaclass=ABCMeta):
 
-    def __init__(self, name, model, env, verbose=False):
+    def __init__(self, name, model, local_model, env, verbose=False):
 
         self.name = name
         self.model = model
+        self.local_model = local_model
         self.env = env
         self.verbose = verbose
         self.sess = None
         self.killers = dict()
         self.ttable = dict()
 
-        if self.model is not None:
+        if self.model is not None:  # else???
             for tvar in self.model.trainable_variables:
                 tf.summary.histogram(tvar.op.name, tvar)
 
@@ -41,38 +42,44 @@ class AgentBase(metaclass=ABCMeta):
                                                              self.test_idx_*100 + self.row_idx_,
                                                              self.test_result_)
 
-            # with tf.name_scope('random_agent_test_results'):
-            #
-            #     self.first_player_wins = tf.Variable(0, name="first_player_wins", trainable=False)
-            #     self.first_player_draws = tf.Variable(0, name="first_player_draws", trainable=False)
-            #     self.first_player_losses = tf.Variable(0, name="first_player_losses", trainable=False)
-            #
-            #     self.second_player_wins = tf.Variable(0, name="second_player_wins", trainable=False)
-            #     self.second_player_draws = tf.Variable(0, name="second_player_draws", trainable=False)
-            #     self.second_player_losses = tf.Variable(0, name="second_player_losses", trainable=False)
-            #
-            #     self.update_first_player_wins = tf.assign(self.first_player_wins, self.test_result_)
-            #     self.update_first_player_draws = tf.assign(self.first_player_draws, self.test_result_)
-            #     self.update_first_player_losses = tf.assign(self.first_player_losses, self.test_result_)
-            #
-            #     self.update_second_player_wins = tf.assign(self.second_player_wins, self.test_result_)
-            #     self.update_second_player_draws = tf.assign(self.second_player_draws, self.test_result_)
-            #     self.update_second_player_losses = tf.assign(self.second_player_losses, self.test_result_)
-            #
-            #     self.update_random_agent_test_results = [self.update_first_player_wins,
-            #                                              self.update_first_player_draws,
-            #                                              self.update_first_player_losses,
-            #                                              self.update_second_player_wins,
-            #                                              self.update_second_player_draws,
-            #                                              self.update_second_player_losses]
-            #
-            #     tf.summary.scalar("first_player_wins", self.first_player_wins)
-            #     tf.summary.scalar("first_player_draws", self.first_player_draws)
-            #     tf.summary.scalar("first_player_losses", self.first_player_losses)
-            #
-            #     tf.summary.scalar("second_player_wins", self.second_player_wins)
-            #     tf.summary.scalar("second_player_draws", self.second_player_draws)
-            #     tf.summary.scalar("second_player_losses", self.second_player_losses)
+            with tf.name_scope('random_agent_test_results'):
+
+                self.first_player_wins = tf.Variable(0, name="first_player_wins", trainable=False)
+                self.first_player_draws = tf.Variable(0, name="first_player_draws", trainable=False)
+                self.first_player_losses = tf.Variable(0, name="first_player_losses", trainable=False)
+
+                self.second_player_wins = tf.Variable(0, name="second_player_wins", trainable=False)
+                self.second_player_draws = tf.Variable(0, name="second_player_draws", trainable=False)
+                self.second_player_losses = tf.Variable(0, name="second_player_losses", trainable=False)
+
+                self.update_first_player_wins = tf.assign(self.first_player_wins, self.test_result_)
+                self.update_first_player_draws = tf.assign(self.first_player_draws, self.test_result_)
+                self.update_first_player_losses = tf.assign(self.first_player_losses, self.test_result_)
+
+                self.update_second_player_wins = tf.assign(self.second_player_wins, self.test_result_)
+                self.update_second_player_draws = tf.assign(self.second_player_draws, self.test_result_)
+                self.update_second_player_losses = tf.assign(self.second_player_losses, self.test_result_)
+
+                self.update_random_agent_test_results = [self.update_first_player_wins,
+                                                         self.update_first_player_draws,
+                                                         self.update_first_player_losses,
+                                                         self.update_second_player_wins,
+                                                         self.update_second_player_draws,
+                                                         self.update_second_player_losses]
+
+                tf.summary.scalar("first_player_wins", self.first_player_wins)
+                tf.summary.scalar("first_player_draws", self.first_player_draws)
+                tf.summary.scalar("first_player_losses", self.first_player_losses)
+
+                tf.summary.scalar("second_player_wins", self.second_player_wins)
+                tf.summary.scalar("second_player_draws", self.second_player_draws)
+                tf.summary.scalar("second_player_losses", self.second_player_losses)
+
+        assign_tvar_ops = []
+        for tvar, local_tvar in zip(self.model.trainable_variables, self.local_model.trainable_variables):
+            assign_tvar_op = tf.assign(local_tvar, tvar)
+            assign_tvar_ops.append(assign_tvar_op)
+        self.pull_model_op = tf.group(*assign_tvar_ops)
 
     @abstractmethod
     def get_move(self, env):
@@ -83,6 +90,7 @@ class AgentBase(metaclass=ABCMeta):
         return NotImplemented
 
     def test2(self, d, depth=1):
+        self.sess.run(self.pull_model_op)
         self.killers = dict()
         self.ttable = dict()
         self.env.make_board(d['fen'])
@@ -90,8 +98,8 @@ class AgentBase(metaclass=ABCMeta):
         result = d['c0'].get(self.env.board.san(move), 0)
         return result
 
-
     def test(self, test_idx, depth=1):
+        self.sess.run(self.pull_model_op)
         self.killers = dict()
         self.ttable = dict()
         df = self.env.get_test(test_idx)

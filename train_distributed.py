@@ -16,9 +16,14 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
     if job_name == "ps":
         server.join()
     else:
+
         with tf.device(tf.train.replica_device_setter(
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
+
+            with tf.device("/job:worker/task:%d/cpu:0" % task_index):
+                with tf.variable_scope('local'):
+                    local_network = ChessValueModel(is_local=True)
 
             # fv_size = env.get_feature_vector_size()
             # network = ValueModel(fv_size)
@@ -30,6 +35,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
             worker_name = 'worker_%03d' % task_index
             agent = TDLeafAgent(worker_name,
                                 network,
+                                local_network,
                                 env,
                                 opt=opt,
                                 verbose=verbose)

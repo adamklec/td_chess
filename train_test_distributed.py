@@ -17,9 +17,15 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
     if job_name == "ps":
         server.join()
     else:
+
         with tf.device(tf.train.replica_device_setter(
-                worker_device="/job:" + job_name + "/task:%d" % task_index,
+                ps_device="/job:ps/task:0/cpu:0",
+                worker_device="/job:worker/task:%d/cpu:0" % task_index,
                 cluster=cluster)):
+
+            with tf.device("/job:worker/task:%d/cpu:0" % task_index):
+                with tf.variable_scope('local'):
+                    local_network = ChessValueModel(is_local=True)
 
             # fv_size = env.get_feature_vector_size()
             # network = ValueModel(fv_size)
@@ -31,6 +37,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
             worker_name = 'worker_%03d' % task_index
             agent = TDLeafAgent(worker_name,
                                 network,
+                                local_network,
                                 env,
                                 opt=opt,
                                 verbose=verbose)
@@ -38,12 +45,14 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
             is_chief = task_index == 0
             sync_replicas_hook = opt.make_session_run_hook(is_chief)
 
+            scaffold = tf.train.Scaffold(summary_op=summary_op)
+
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=1,
                                                hooks=[sync_replicas_hook],
-                                               scaffold=tf.train.Scaffold(summary_op=summary_op)) as sess:
+                                               scaffold=scaffold) as sess:
             agent.sess = sess
 
             test_period = 1000
@@ -85,7 +94,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
                 #             print('-' * 100)
 
                 # else:
-                reward = agent.train(num_moves=10, depth=3)
+                reward = agent.train(num_moves=10, depth=1)
                 if agent.verbose:
                     print(worker_name,
                           "EPISODE:", episode_number,
@@ -95,8 +104,8 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
 
 
 if __name__ == "__main__":
-    ps_hosts = ['ec2-54-84-212-199.compute-1.amazonaws.com:' + str(2222 + i) for i in range(5)]
-    worker_hosts = ['ec2-54-84-212-199.compute-1.amazonaws.com:' + str(3333 + i) for i in range(40)]
+    ps_hosts = ['localhost:2222']
+    worker_hosts = ['localhost:' + str(3333 + i) for i in range(4)]
     ckpt_dir = "./log/" + str(int(time.time()))
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
 

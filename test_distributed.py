@@ -42,6 +42,10 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
 
+            with tf.device("/job:worker/task:%d/cpu:0" % task_index):
+                with tf.variable_scope('local'):
+                    local_network = ChessValueModel(is_local=True)
+
             network = ChessValueModel()
 
             opt = tf.train.AdamOptimizer()
@@ -50,6 +54,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
             worker_name = 'worker_%03d' % task_index
             agent = TDLeafAgent(worker_name,
                                 network,
+                                local_network,
                                 env,
                                 opt=opt,
                                 verbose=verbose)
@@ -109,11 +114,8 @@ if __name__ == "__main__":
     this_ip = args.ips[1]
     that_ip = args.ips[0]
 
-    # ps_hosts = [that_ip + ':' + str(2222 + i) for i in range(5)] + [this_ip + ':' + str(2222 + i) for i in range(5)]
-    # worker_hosts = [that_ip + ':' + str(3333 + i) for i in range(40)] + [this_ip + ':' + str(3333 + i) for i in range(40)]
-
-    ps_hosts = [this_ip + ':' + str(2222 + i) for i in range(5)]
-    worker_hosts = [this_ip + ':' + str(3333 + i) for i in range(40)]
+    ps_hosts = [that_ip + ':' + str(2222 + i) for i in range(5)] + [this_ip + ':' + str(2222 + i) for i in range(5)]
+    worker_hosts = [that_ip + ':' + str(3333 + i) for i in range(40)] + [this_ip + ':' + str(3333 + i) for i in range(40)]
 
     ckpt_dir = "./log/" + args.run_name
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})

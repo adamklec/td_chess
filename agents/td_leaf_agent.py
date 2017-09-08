@@ -8,25 +8,30 @@ class TDLeafAgent(AgentBase):
     def __init__(self,
                  name,
                  model,
+                 local_model,
                  env,
                  opt=None,
                  verbose=False):
 
-        super().__init__(name, model, env, verbose)
+        super().__init__(name, model, local_model, env, verbose)
 
         if opt is None:
             self.opt = tf.train.AdamOptimizer()
         else:
             self.opt = opt
 
-        self.grad_vars = self.opt.compute_gradients(self.model.value, self.model.trainable_variables)
+        self.grad_vars = self.opt.compute_gradients(self.local_model.value, self.local_model.trainable_variables)
+
+        self.grads = tf.gradients(self.local_model.value, self.local_model.trainable_variables)
+
         self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER')
-                       for var in self.model.trainable_variables]
+                       for var in self.local_model.trainable_variables]
         self.apply_grads = self.opt.apply_gradients(zip(self.grad_s,
                                                         self.model.trainable_variables),
                                                     name='apply_grads', global_step=self.update_count)
 
     def train(self, num_moves=10, depth=1):
+        self.sess.run(self.pull_model_op)
         lamda = 0.7
         self.env.random_position(episode_count=self.sess.run(self.train_episode_count))
         # self.env.set_board(chess.Board("1k2r3/1p1bP3/2p2p1Q/Ppb5/4Rp1P/2q2N1P/5PB1/6K1 b - - 0 1"))
@@ -37,8 +42,8 @@ class TDLeafAgent(AgentBase):
 
         value_seq = []
         grads_seq = []
-        traces = [np.zeros(tvar.shape) for tvar in self.model.trainable_variables]
-        grad_accums = [np.zeros(tvar.shape) for tvar in self.model.trainable_variables]
+        traces = [np.zeros(tvar.shape) for tvar in self.local_model.trainable_variables]
+        grad_accums = [np.zeros(tvar.shape) for tvar in self.local_model.trainable_variables]
 
         turn_count = 0
 
@@ -46,8 +51,7 @@ class TDLeafAgent(AgentBase):
             move, leaf_value, leaf_node = self.get_move(self.env, depth=depth, return_value_node=True)
             value_seq.append(leaf_value)
             feature_vector = self.env.make_feature_vector2(leaf_node.board)
-            grad_vars = self.sess.run(self.grad_vars, feed_dict={self.model.feature_vector_: feature_vector})
-            grads, _ = zip(*grad_vars)
+            grads = self.sess.run(self.grads, feed_dict={self.local_model.feature_vector_: feature_vector})
             grads_seq.append(grads)
 
             if turn_count > 0:
@@ -82,7 +86,7 @@ class TDLeafAgent(AgentBase):
 
     def get_move(self, env, depth=3, return_value_node=False):
         node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.minimax(node, depth, -100000, 100000, self.model.value_function(self.sess))
+        leaf_value, leaf_node = self.minimax(node, depth, -100000, 100000, self.local_model.value_function(self.sess))
         if len(leaf_node.path) > 1:
             move = leaf_node.path[1].move
         else:
