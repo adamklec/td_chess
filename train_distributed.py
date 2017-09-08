@@ -56,6 +56,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                         print(worker_name,
                               "EPISODE:", episode_number,
                               "APPLYING GRADS")
+                        print('-' * 100)
                         sess.run(agent.apply_grads)
                         sess.run([agent.reset_episodes_since_apply_grad, agent.reset_grad_accums_op])
                 else:
