@@ -91,7 +91,7 @@ class TDLeafAgent(AgentBase):
                 row['depth'] = row['depth'] + 1
                 self.ttable[key] = row
 
-        self.sess.run([self.update_grad_accums_op self.increment_episodes_since_apply_grad],
+        self.sess.run([self.update_grad_accums_op, self.increment_episodes_since_apply_grad],
                       feed_dict={grad_accum_: grad_accum
                                  for grad_accum_, grad_accum in zip(self.grad_accum_s, grad_accums)})
 
