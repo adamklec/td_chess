@@ -94,7 +94,8 @@ class AgentBase(metaclass=ABCMeta):
     def test2(self, d, depth=1):
         t0 = time.time()
         self.sess.run(self.pull_model_op)
-        print(self.name, "PULL MODEL TIME:", time.time() - t0)        self.killers = dict()
+        print(self.name, "PULL MODEL TIME:", time.time() - t0)
+        self.killers = dict()
         self.ttable = dict()
         self.env.make_board(d['fen'])
         move = self.get_move(self.env, depth=depth)
