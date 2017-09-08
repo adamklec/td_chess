@@ -49,7 +49,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
             network = ChessValueModel()
 
             opt = tf.train.AdamOptimizer()
-            opt = tf.train.SyncReplicasOptimizer(opt, 100)
+            opt = tf.train.SyncReplicasOptimizer(opt, replicas_to_aggregate=100, total_num_replicas=40)
 
             worker_name = 'worker_%03d' % task_index
             agent = TDLeafAgent(worker_name,
