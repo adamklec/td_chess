@@ -33,7 +33,7 @@ class AgentBase(metaclass=ABCMeta):
             with tf.name_scope('test_results'):
                 self.test_results = tf.Variable(tf.zeros((1400,), dtype=tf.int32), name="test_results", trainable=False)
                 self.test_results_reduced = tf.reduce_sum(tf.reshape(self.test_results, (14, 100)), axis=1)
-                self.elo_estimate = tf.slice(self.test_results, 0, 1000) * 0.359226 + 10.402545
+                self.elo_estimate = tf.slice(self.test_results, [0], [1000]) * 0.359226 + 10.402545
                 for i in range(14):
                     tf.summary.scalar("test_" + str(i), tf.reduce_sum(tf.slice(self.test_results, [i * 100], [100])))
                 test_total = tf.reduce_sum(self.test_results)
