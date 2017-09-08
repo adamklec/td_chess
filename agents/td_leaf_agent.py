@@ -20,10 +20,12 @@ class TDLeafAgent(AgentBase):
 
         update_grad_accum_ops = []
         reset_grad_accum_ops = []
+        self.grad_accums = []
         self.grad_accum_s = []
 
         for tvar in self.model.trainable_variables:
             grad_accum = tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name + "_grad_accum")
+            self.grad_accums.append(grad_accum)
             grad_accum_ = tf.placeholder(tf.float32, shape=tvar.get_shape(), name=tvar.op.name + "_grad_accum_")
             self.grad_accum_s.append(grad_accum_)
             update_grad_accum_op = tf.assign_add(grad_accum, grad_accum_)
