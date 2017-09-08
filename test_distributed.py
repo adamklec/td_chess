@@ -129,7 +129,6 @@ if __name__ == "__main__":
             p = Process(target=work, args=(None, 'ps', task_idx, cluster_spec, ckpt_dir, 1))
             processes.append(p)
             p.start()
-            time.sleep(1)
 
     for task_idx, worker_host in enumerate(worker_hosts):
         if this_ip in worker_host:
@@ -137,7 +136,6 @@ if __name__ == "__main__":
             p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 2))
             processes.append(p)
             p.start()
-            time.sleep(1)
 
     for process in processes:
         process.join()
