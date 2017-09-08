@@ -90,7 +90,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                                                                agent.row_idx_: row_idx,
                                                                agent.test_result_: result})
                 if agent.verbose:
-                    test_results_reduced = agent.sess.run(agent.test_results_reduced)
+                    test_results_reduced, elo_estimate = agent.sess.run(agent.test_results_reduced, agent.elo_estimate)
                     print(worker_name,
                           "EPISODE:", episode_number,
                           "UPDATE:", sess.run(agent.update_count),
@@ -98,6 +98,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                           "FILENAME:", filename,
                           "RESULT:", result)
                     print(test_results_reduced, "\n", "TOTAL:", sum(test_results_reduced))
+                    print("ELO ESTIMATE:", elo_estimate)
                     print('-' * 100)
 
 
