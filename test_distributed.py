@@ -48,15 +48,11 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
             network = ChessValueModel()
 
-            opt = tf.train.AdamOptimizer()
-            opt = tf.train.SyncReplicasOptimizer(opt, replicas_to_aggregate=100, total_num_replicas=40)
-
             worker_name = 'worker_%03d' % task_index
             agent = TDLeafAgent(worker_name,
                                 network,
                                 local_network,
                                 env,
-                                opt=opt,
                                 verbose=verbose)
 
             test_path = "./chess_tests/"
@@ -69,14 +65,12 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
             summary_op = tf.summary.merge_all()
             is_chief = (task_index == 0)
-            sync_replicas_hook = opt.make_session_run_hook(is_chief)
             scaffold = tf.train.Scaffold(summary_op=summary_op)
 
         with tf.train.MonitoredTrainingSession(master=server.target,
                                                is_chief=is_chief,
                                                checkpoint_dir=log_dir,
                                                save_summaries_steps=1,
-                                               hooks=[sync_replicas_hook],
                                                scaffold=scaffold) as sess:
             agent.sess = sess
 
