@@ -51,13 +51,12 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                 if is_chief:
                     time.sleep(5)
                     episodes_since_apply_grads = sess.run(agent.episodes_since_apply_grad)
-                    if episodes_since_apply_grads > 100:
+                    if episodes_since_apply_grads > 10:
                         episode_number = sess.run(agent.increment_train_episode_count)
                         print(worker_name,
                               "EPISODE:", episode_number,
                               "APPLYING GRADS")
-                        sess.run(agent.apply_grads,
-                                 feed_dict={grad_: grad_accum for grad_, grad_accum in zip(agent.grad_s, agent.grad_accums)})
+                        sess.run(agent.apply_grads)
                         sess.run([agent.reset_episodes_since_apply_grad, agent.reset_grad_accums_op])
                 else:
                     episode_number = sess.run(agent.increment_train_episode_count)
