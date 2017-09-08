@@ -116,7 +116,7 @@ if __name__ == "__main__":
     that_ip = args.ips[0]
 
     # ps_hosts = [that_ip + ':' + str(2222 + i) for i in range(5)] + [this_ip + ':' + str(2222 + i) for i in range(5)]
-    ps_hosts = [that + ':2222']
+    ps_hosts = [that_ip + ':2222']
     worker_hosts = [that_ip + ':' + str(3333 + i) for i in range(40)] + [this_ip + ':' + str(3333 + i) for i in range(40)]
 
     ckpt_dir = "./log/" + args.run_name
