@@ -49,7 +49,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
             while not sess.should_stop():
                 if is_chief:
-                    time.sleep(5)
+                    time.sleep(1)
                     episodes_since_apply_grads = sess.run(agent.episodes_since_apply_grad)
                     if episodes_since_apply_grads > 10:
                         episode_number = sess.run(agent.increment_train_episode_count)

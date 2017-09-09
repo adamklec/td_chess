@@ -36,7 +36,7 @@ class TDLeafAgent(AgentBase):
         self.update_grad_accums_op = tf.group(*update_grad_accum_ops)
         self.reset_grad_accums_op = tf.group(*reset_grad_accum_ops)
 
-        self.opt = tf.train.AdamOptimizer()
+        self.opt = tf.train.AdamOptimizer(learning_rate=0.01)
 
         self.grads = tf.gradients(self.local_model.value, self.local_model.trainable_variables)
 
