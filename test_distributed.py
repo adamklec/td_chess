@@ -30,77 +30,74 @@ def parse_test_string(string):
     return d
 
 
-def work(env, job_name, task_index, cluster, log_dir, verbose):
+def work(env, task_index, cluster, log_dir, verbose):
 
     server = tf.train.Server(cluster,
-                             job_name=job_name,
+                             job_name="tester",
                              task_index=task_index)
 
-    if job_name == "ps":
-        server.join()
-    else:
-        with tf.device(tf.train.replica_device_setter(
-                worker_device="/job:" + job_name + "/task:%d" % task_index,
-                cluster=cluster)):
+    worker_device = "/job:tester/task:%d" % task_index
+    with tf.device(tf.train.replica_device_setter(
+            worker_device=worker_device,
+            cluster=cluster)):
 
-            with tf.device("/job:tester/task:%d/cpu:0" % task_index):
-                with tf.variable_scope('local'):
-                    local_network = ChessValueModel(is_local=True)
+        with tf.device(worker_device):
+            with tf.variable_scope('local'):
+                local_network = ChessValueModel(is_local=True)
 
-            network = ChessValueModel()
+        network = ChessValueModel()
 
-            worker_name = 'worker_%03d' % task_index
-            agent = TDLeafAgent(worker_name,
-                                network,
-                                local_network,
-                                env,
-                                verbose=verbose)
+        worker_name = 'worker_%03d' % task_index
+        agent = TDLeafAgent(worker_name,
+                            network,
+                            local_network,
+                            env,
+                            verbose=verbose)
 
-            test_path = "./chess_tests/"
-            test_filenames = sorted([f for f in listdir(test_path) if isfile(join(test_path, f))])
-            test_strings = []
-            for filename in test_filenames:
-                with open(test_path + filename) as f:
-                    for string in f:
-                        test_strings.append(string.strip())
+        test_path = "./chess_tests/"
+        test_filenames = sorted([f for f in listdir(test_path) if isfile(join(test_path, f))])
+        test_strings = []
+        for filename in test_filenames:
+            with open(test_path + filename) as f:
+                for string in f:
+                    test_strings.append(string.strip())
 
-            summary_op = tf.summary.merge_all()
-            is_chief = (task_index == 0)
-            scaffold = tf.train.Scaffold(summary_op=summary_op)
+        summary_op = tf.summary.merge_all()
+        scaffold = tf.train.Scaffold(summary_op=summary_op)
 
-        with tf.train.MonitoredTrainingSession(master=server.target,
-                                               is_chief=is_chief,
-                                               checkpoint_dir=log_dir,
-                                               save_summaries_steps=1,
-                                               scaffold=scaffold) as sess:
-            agent.sess = sess
+    with tf.train.MonitoredTrainingSession(master=server.target,
+                                           is_chief=False,
+                                           checkpoint_dir=log_dir,
+                                           save_summaries_steps=1,
+                                           scaffold=scaffold) as sess:
+        agent.sess = sess
 
-            num_tests = 1400
-            while not sess.should_stop():
-                episode_number = sess.run(agent.increment_test_episode_count)
-                test_idx = (episode_number-1) % num_tests
-                d = parse_test_string(test_strings[test_idx])
-                result = agent.test2(d, depth=3)
+        num_tests = 1400
+        while not sess.should_stop():
+            episode_number = sess.run(agent.increment_test_episode_count)
+            test_idx = (episode_number-1) % num_tests
+            d = parse_test_string(test_strings[test_idx])
+            result = agent.test2(d, depth=3)
 
-                filename = test_filenames[test_idx]
-                matches = re.split('-|\.', filename)
-                row_idx = int(matches[0])
-                test_idx = int(matches[1][-2:]) - 1
+            filename = test_filenames[test_idx]
+            matches = re.split('-|\.', filename)
+            row_idx = int(matches[0])
+            test_idx = int(matches[1][-2:]) - 1
 
-                sess.run(agent.update_test_results, feed_dict={agent.test_idx_: test_idx,
-                                                               agent.row_idx_: row_idx,
-                                                               agent.test_result_: result})
-                if agent.verbose:
-                    test_results_reduced, elo_estimate = agent.sess.run([agent.test_results_reduced, agent.elo_estimate])
-                    print(worker_name,
-                          "EPISODE:", episode_number,
-                          "UPDATE:", sess.run(agent.update_count),
-                          "TEST INDEX:", test_idx,
-                          "FILENAME:", filename,
-                          "RESULT:", result)
-                    print(test_results_reduced, "\n", "TOTAL:", sum(test_results_reduced))
-                    print("ELO ESTIMATE:", elo_estimate)
-                    print('-' * 100)
+            sess.run(agent.update_test_results, feed_dict={agent.test_idx_: test_idx,
+                                                           agent.row_idx_: row_idx,
+                                                           agent.test_result_: result})
+            if agent.verbose:
+                test_results_reduced, elo_estimate = agent.sess.run([agent.test_results_reduced, agent.elo_estimate])
+                print(worker_name,
+                      "EPISODE:", episode_number,
+                      "UPDATE:", sess.run(agent.update_count),
+                      "TEST INDEX:", test_idx,
+                      "FILENAME:", filename,
+                      "RESULT:", result)
+                print(test_results_reduced, "\n", "TOTAL:", sum(test_results_reduced))
+                print("ELO ESTIMATE:", elo_estimate)
+                print('-' * 100)
 
 
 if __name__ == "__main__":
@@ -123,9 +120,9 @@ if __name__ == "__main__":
 
     processes = []
 
-    for task_idx, worker_host in enumerate(tester_hosts):
+    for task_idx, _ in enumerate(tester_hosts):
         env = ChessEnv()
-        p = Process(target=work, args=(env, 'tester', task_idx, cluster_spec, ckpt_dir, 1))
+        p = Process(target=work, args=(env, task_idx, cluster_spec, ckpt_dir, 1))
         processes.append(p)
         p.start()
 

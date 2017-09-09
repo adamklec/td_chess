@@ -91,13 +91,13 @@ if __name__ == "__main__":
         {"ps": ps_hosts, "worker": chief_trainer_hosts + worker_trainer_hosts, "tester": tester_hosts})
     processes = []
 
-    for task_idx, ps_hosts in enumerate(ps_hosts):
+    for task_idx, _ in enumerate(ps_hosts):
         env = ChessEnv()
         p = Process(target=work, args=(env, 'ps', task_idx, cluster_spec, ckpt_dir, 1))
         processes.append(p)
         p.start()
 
-    for task_idx, worker_host in enumerate(chief_trainer_hosts):
+    for task_idx, _ in enumerate(chief_trainer_hosts):
         env = ChessEnv()
         p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 1))
         processes.append(p)
