@@ -14,7 +14,7 @@ class TDLeafAgent(AgentBase):
 
         super().__init__(name, model, local_model, env, verbose)
 
-        self.episodes_since_apply_grad = tf.Variable(0, trainable=False, name="episodes_since_apply_grad")
+        self.episodes_since_apply_grad = tf.Variable(0, trainable=False, name="episodes_since_apply_grad", dtype=tf.int32)
         self.increment_episodes_since_apply_grad = tf.assign_add(self.episodes_since_apply_grad, 1, use_locking=True, name="increment_episodes_since_apply_grad")
         self.reset_episodes_since_apply_grad = tf.assign(self.episodes_since_apply_grad, 0, use_locking=True, name="reset_episodes_since_apply_grad")
 
