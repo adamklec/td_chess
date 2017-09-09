@@ -43,7 +43,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                 worker_device="/job:" + job_name + "/task:%d" % task_index,
                 cluster=cluster)):
 
-            with tf.device("/job:worker/task:%d/cpu:0" % task_index):
+            with tf.device("/job:tester/task:%d/cpu:0" % task_index):
                 with tf.variable_scope('local'):
                     local_network = ChessValueModel(is_local=True)
 
@@ -125,7 +125,7 @@ if __name__ == "__main__":
 
     for task_idx, worker_host in enumerate(tester_hosts):
         env = ChessEnv()
-        p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 1))
+        p = Process(target=work, args=(env, 'tester', task_idx, cluster_spec, ckpt_dir, 1))
         processes.append(p)
         p.start()
 
