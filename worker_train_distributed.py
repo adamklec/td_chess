@@ -75,32 +75,27 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("run_name")
-    parser.add_argument("ips", nargs='+')
-    args = parser.parse_args()
-    this_ip = args.ips[0]
-    that_ip = args.ips[1]
+    parser.add_argument("chief_ip")
+    parser.add_argument("worker_ip")
+    parser.add_argument("tester_ip")
 
-    ps_hosts = [this_ip + ':' + str(2222 + i) for i in range(5)] #+ [that_ip + ':' + str(2222 + i) for i in range(5)]
-    # ps_hosts = [this_ip + ':2222']
-    worker_hosts = [this_ip + ':' + str(3333 + i) for i in range(40)] + [that_ip + ':' + str(3333 + i) for i in range(40)]
+    args = parser.parse_args()
+
+    ps_hosts = [args.chief_ip + ':' + str(2222 + i) for i in range(5)]
+    chief_trainer_hosts = [args.chief_ip + ':' + str(3333 + i) for i in range(40)]
+    worker_trainer_hosts = [args.worker_ip + ':' + str(3333 + i) for i in range(40)]
+    tester_hosts = [args.tester_ip + ':' + str(3333 + i) for i in range(40)]
 
     ckpt_dir = "./log/" + args.run_name
-    cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": worker_hosts})
-
+    cluster_spec = tf.train.ClusterSpec(
+        {"ps": ps_hosts, "worker": chief_trainer_hosts + worker_trainer_hosts, "tester": tester_hosts})
     processes = []
 
-    for task_idx, ps_host in enumerate(ps_hosts):
-        if this_ip in ps_host:
-            p = Process(target=work, args=(None, 'ps', task_idx, cluster_spec, ckpt_dir, 1))
-            processes.append(p)
-            p.start()
-
-    for task_idx, worker_host in enumerate(worker_hosts):
-        if this_ip in worker_host:
-            env = ChessEnv()
-            p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 1))
-            processes.append(p)
-            p.start()
+    for task_idx, worker_host in enumerate(worker_trainer_hosts):
+        env = ChessEnv()
+        p = Process(target=work, args=(env, 'worker', task_idx, cluster_spec, ckpt_dir, 1))
+        processes.append(p)
+        p.start()
 
     for process in processes:
         process.join()
