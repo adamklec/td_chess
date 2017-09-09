@@ -43,7 +43,7 @@ class TDLeafAgent(AgentBase):
         self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER')
                        for var in self.local_model.trainable_variables]
         self.num_grads_ = tf.placeholder(tf.int32, name='num_grads_')
-        self.apply_grads = self.opt.apply_gradients(zip([grad_accum/self.num_grads_ for grad_accum in self.grad_accums],
+        self.apply_grads = self.opt.apply_gradients(zip([grad_accum/tf.to_float(self.num_grads_) for grad_accum in self.grad_accums],
                                                         self.model.trainable_variables),
                                                     name='apply_grads', global_step=self.update_count)
 
