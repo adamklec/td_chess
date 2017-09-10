@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 from anytree import Node
 from agents.agent_base import AgentBase
-import time
 from envs.chess import material_value_from_board
 
 
@@ -84,7 +83,7 @@ class TDLeafAgent(AgentBase):
                 else:
                     delta = (value_seq[-1] - value_seq[-2])[0, 0]
 
-                self.sess.run(self.update_mean_delta, feed_dict={self.delta_: delta})
+                self.sess.run(self.update_mean_delta, feed_dict={self.delta_: np.array([[delta]])})
 
                 for grad, trace, grad_accum in zip(grads_seq[-2], traces, grad_accums):
                     trace *= lamda
