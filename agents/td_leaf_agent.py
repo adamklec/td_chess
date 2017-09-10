@@ -50,7 +50,12 @@ class TDLeafAgent(AgentBase):
 
     def train(self, num_moves=10, depth=1, pretrain=False):
         self.sess.run(self.pull_model_op)
-        lamda = 0.7
+
+        if pretrain:
+            lamda = 0.7
+        else:
+            lamda = 0.0
+
         self.env.random_position(episode_count=self.sess.run(self.train_episode_count))
         self.ttable = dict()
         self.killers = dict()
