@@ -46,7 +46,7 @@ class TDLeafAgent(AgentBase):
 
         delta = tf.Variable(0.0, trainable=False, name='mean_delta')
         self.delta_ = tf.placeholder(tf.float32, name='delta_')
-        assign_delta = tf.assign(delta, self.delta_)
+        assign_delta = tf.assign(delta, tf.abs(self.delta_))
 
         with tf.control_dependencies([assign_delta]):
             self.update_delta = ema.apply([delta])
