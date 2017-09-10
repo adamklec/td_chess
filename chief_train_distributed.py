@@ -54,16 +54,15 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                     if episodes_since_apply_grads > 10:
                         episode_number = sess.run(agent.increment_train_episode_count)
 
-                        t0 = time.time()
                         sess.run(agent.apply_grads, feed_dict={agent.num_grads_: episodes_since_apply_grads})
                         sess.run([agent.reset_episodes_since_apply_grad, agent.reset_grad_accums_op])
                         print(worker_name,
                               "EPISODE:", episode_number,
-                              "APPLYING GRADS:", time.time() - t0)
+                              "APPLYING GRADS")
                         print('-' * 100)
                 else:
                     episode_number = sess.run(agent.increment_train_episode_count)
-                    reward = agent.train(num_moves=10, depth=1, pretrain=True)
+                    reward = agent.train(num_moves=10, depth=1, pre_train=True)
                     if agent.verbose:
                         print(worker_name,
                               "EPISODE:", episode_number,

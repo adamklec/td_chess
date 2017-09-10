@@ -1,7 +1,6 @@
 from agents.td_leaf_agent import TDLeafAgent
 from envs.chess import ChessEnv
 from multiprocessing import Process
-import time
 import tensorflow as tf
 from value_model import ValueModel
 import argparse

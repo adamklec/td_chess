@@ -1,7 +1,6 @@
 from agents.td_leaf_agent import TDLeafAgent
 from envs.chess import ChessEnv
 from multiprocessing import Process
-import time
 import tensorflow as tf
 from value_model import ValueModel
 import argparse
@@ -48,7 +47,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
             while not sess.should_stop():
                 episode_number = sess.run(agent.increment_train_episode_count)
-                reward = agent.train(num_moves=10, depth=1, pretrain=True)
+                reward = agent.train(num_moves=10, depth=1, pre_train=True)
                 if agent.verbose:
                     print(worker_name,
                           "EPISODE:", episode_number,

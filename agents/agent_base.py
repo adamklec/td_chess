@@ -1,36 +1,51 @@
 from abc import ABCMeta, abstractmethod
 import tensorflow as tf
 from collections import Counter
-import time
 
 class AgentBase(metaclass=ABCMeta):
 
     def __init__(self, name, model, local_model, env, verbose=False):
 
         self.name = name
-        self.model = model
-        self.local_model = local_model
+        with tf.name_scope('model'):
+            self.model = model
+            self.local_model = local_model
+            assign_tvar_ops = []
+            for tvar, local_tvar in zip(self.model.trainable_variables, self.local_model.trainable_variables):
+                assign_tvar_op = tf.assign(local_tvar, tvar)
+                assign_tvar_ops.append(assign_tvar_op)
+            self.pull_global_model = tf.group(*assign_tvar_ops, name='pull_global_model')
+
         self.env = env
         self.verbose = verbose
         self.sess = None
         self.killers = dict()
         self.ttable = dict()
 
-        if self.model is not None:  # else???
-            for tvar in self.model.trainable_variables:
-                tf.summary.histogram(tvar.op.name, tvar)
+        for tvar in self.model.trainable_variables:
+            tf.summary.histogram(tvar.op.name, tvar)
 
+        with tf.name_scope('epsiode_count'):
             self.update_count = tf.train.get_or_create_global_step()
             self.train_episode_count = tf.Variable(0, trainable=False, name='train_episode_count')
             self.increment_train_episode_count = tf.assign_add(self.train_episode_count, 1, use_locking=True)
             self.test_episode_count = tf.Variable(0, trainable=False, name='test_episode_count')
             self.increment_test_episode_count = tf.assign_add(self.test_episode_count, 1, use_locking=True)
 
-            self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
-            self.row_idx_ = tf.placeholder(tf.int32, name='row_idx_')
-            self.test_result_ = tf.placeholder(tf.int32, name='test_result_')
+            self.episodes_since_apply_grad = tf.Variable(0, trainable=False, name="episodes_since_apply_grad", dtype=tf.int32)
+            self.increment_episodes_since_apply_grad = tf.assign_add(self.episodes_since_apply_grad, 1,
+                                                                     use_locking=True,
+                                                                     name="increment_episodes_since_apply_grad")
+            self.reset_episodes_since_apply_grad = tf.assign(self.episodes_since_apply_grad, 0, use_locking=True,
+                                                             name="reset_episodes_since_apply_grad")
 
-            with tf.name_scope('test_results'):
+        with tf.name_scope('testing'):
+
+            with tf.name_scope('STS'):
+                self.test_idx_ = tf.placeholder(tf.int32, name='test_idx_')
+                self.row_idx_ = tf.placeholder(tf.int32, name='row_idx_')
+                self.test_result_ = tf.placeholder(tf.int32, name='test_result_')
+
                 self.test_results = tf.Variable(tf.zeros((1400,), dtype=tf.int32), name="test_results", trainable=False)
                 self.test_results_reduced = tf.reduce_sum(tf.reshape(self.test_results, (14, 100)), axis=1)
                 self.elo_estimate = tf.to_float(tf.reduce_sum(tf.slice(self.test_results, [0], [1000]))) * 0.359226 + 10.402545
@@ -44,7 +59,7 @@ class AgentBase(metaclass=ABCMeta):
                                                              self.test_idx_*100 + self.row_idx_,
                                                              self.test_result_)
 
-            with tf.name_scope('random_agent_test_results'):
+            with tf.name_scope('random_agent'):
 
                 self.first_player_wins = tf.Variable(0, name="first_player_wins", trainable=False)
                 self.first_player_draws = tf.Variable(0, name="first_player_draws", trainable=False)
@@ -77,12 +92,6 @@ class AgentBase(metaclass=ABCMeta):
                 tf.summary.scalar("second_player_draws", self.second_player_draws)
                 tf.summary.scalar("second_player_losses", self.second_player_losses)
 
-        assign_tvar_ops = []
-        for tvar, local_tvar in zip(self.model.trainable_variables, self.local_model.trainable_variables):
-            assign_tvar_op = tf.assign(local_tvar, tvar)
-            assign_tvar_ops.append(assign_tvar_op)
-        self.pull_model_op = tf.group(*assign_tvar_ops)
-
     @abstractmethod
     def get_move(self, env):
         return NotImplemented
@@ -92,7 +101,7 @@ class AgentBase(metaclass=ABCMeta):
         return NotImplemented
 
     def test2(self, d, depth=1):
-        self.sess.run(self.pull_model_op)
+        self.sess.run(self.pull_global_model)
         self.killers = dict()
         self.ttable = dict()
         self.env.make_board(d['fen'])
@@ -101,7 +110,7 @@ class AgentBase(metaclass=ABCMeta):
         return result
 
     def test(self, test_idx, depth=1):
-        self.sess.run(self.pull_model_op)
+        self.sess.run(self.pull_global_model)
         self.killers = dict()
         self.ttable = dict()
         df = self.env.get_test(test_idx)

@@ -5,6 +5,7 @@ from agents.agent_base import AgentBase
 import time
 from envs.chess import material_value_from_board
 
+
 class TDLeafAgent(AgentBase):
     def __init__(self,
                  name,
@@ -15,43 +16,42 @@ class TDLeafAgent(AgentBase):
 
         super().__init__(name, model, local_model, env, verbose)
 
-        self.episodes_since_apply_grad = tf.Variable(0, trainable=False, name="episodes_since_apply_grad", dtype=tf.int32)
-        self.increment_episodes_since_apply_grad = tf.assign_add(self.episodes_since_apply_grad, 1, use_locking=True, name="increment_episodes_since_apply_grad")
-        self.reset_episodes_since_apply_grad = tf.assign(self.episodes_since_apply_grad, 0, use_locking=True, name="reset_episodes_since_apply_grad")
-
-        update_grad_accum_ops = []
-        reset_grad_accum_ops = []
-        self.grad_accums = []
-        self.grad_accum_s = []
-
-        for tvar in self.model.trainable_variables:
-            grad_accum = tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name + "_grad_accum")
-            self.grad_accums.append(grad_accum)
-            grad_accum_ = tf.placeholder(tf.float32, shape=tvar.get_shape(), name=tvar.op.name + "_grad_accum_")
-            self.grad_accum_s.append(grad_accum_)
-            update_grad_accum_op = tf.assign_add(grad_accum, grad_accum_)
-            update_grad_accum_ops.append(update_grad_accum_op)
-            reset_grad_accum_op = tf.assign(grad_accum, tf.zeros_like(tvar))
-            reset_grad_accum_ops.append(reset_grad_accum_op)
-
-        self.update_grad_accums_op = tf.group(*update_grad_accum_ops)
-        self.reset_grad_accums_op = tf.group(*reset_grad_accum_ops)
-
         self.opt = tf.train.AdamOptimizer()
 
-        self.grads = tf.gradients(self.local_model.value, self.local_model.trainable_variables)
+        with tf.name_scope('gradient_accumulator'):
+            update_grad_accum_ops = []
+            reset_grad_accum_ops = []
+            self.grad_accums = []
+            self.grad_accum_s = []
 
-        self.grad_s = [tf.placeholder(tf.float32, shape=var.get_shape(), name=var.op.name+'_PLACEHOLDER')
-                       for var in self.local_model.trainable_variables]
+            for tvar in self.model.trainable_variables:
+                grad_accum = tf.Variable(tf.zeros_like(tvar), trainable=False, name=tvar.op.name + "_grad_accum")
+                self.grad_accums.append(grad_accum)
+                grad_accum_ = tf.placeholder(tf.float32, shape=tvar.get_shape(), name=tvar.op.name + "_grad_accum_")
+                self.grad_accum_s.append(grad_accum_)
+                update_grad_accum_op = tf.assign_add(grad_accum, grad_accum_)
+                update_grad_accum_ops.append(update_grad_accum_op)
+                reset_grad_accum_op = tf.assign(grad_accum, tf.zeros_like(tvar))
+                reset_grad_accum_ops.append(reset_grad_accum_op)
+
+            self.update_grad_accums_op = tf.group(*update_grad_accum_ops)
+            self.reset_grad_accums_op = tf.group(*reset_grad_accum_ops)
+
+        self.grads = tf.gradients(self.local_model.value, self.local_model.trainable_variables)
         self.num_grads_ = tf.placeholder(tf.int32, name='num_grads_')
         self.apply_grads = self.opt.apply_gradients(zip([grad_accum/tf.to_float(self.num_grads_) for grad_accum in self.grad_accums],
                                                         self.model.trainable_variables),
                                                     name='apply_grads', global_step=self.update_count)
 
-    def train(self, num_moves=10, depth=1, pretrain=False):
-        self.sess.run(self.pull_model_op)
+        self.mean_delta = tf.Variable(0.0, trainable=False, name='mean_delta')
+        self.delta_ = tf.placeholder(tf.float32, name='delta_')
 
-        if pretrain:
+        self.update_mean_delta = tf.assign_sub(self.mean_delta, .001 * tf.subtract(self.mean_delta, self.delta_))
+
+    def train(self, num_moves=10, depth=1, pre_train=False):
+        self.sess.run(self.pull_global_model)
+
+        if pre_train:
             lamda = 0.0
         else:
             lamda = 0.7
@@ -71,7 +71,7 @@ class TDLeafAgent(AgentBase):
 
         while self.env.get_reward() is None and turn_count < num_moves:
 
-            move, value, node = self.get_move(self.env, depth=depth, return_value_node=True, pretrain=pretrain)
+            move, value, node = self.get_move(self.env, depth=depth, return_value_node=True, pre_train=pre_train)
 
             value_seq.append(value)
             feature_vector = self.env.make_feature_vector2(node.board)
@@ -79,10 +79,12 @@ class TDLeafAgent(AgentBase):
             grads_seq.append(grads)
 
             if turn_count > 0:
-                if pretrain:
-                    delta = (np.tanh(material_value_from_board(node.board)/5) - value_seq[-2][0, 0])
+                if pre_train:
+                    delta = (np.tanh(material_value_from_board(node.board) / 5.0) - value_seq[-2][0, 0])
                 else:
                     delta = (value_seq[-1] - value_seq[-2])[0, 0]
+
+                self.sess.run(self.update_mean_delta, feed_dict={self.delta_: delta})
 
                 for grad, trace, grad_accum in zip(grads_seq[-2], traces, grad_accums):
                     trace *= lamda
@@ -135,10 +137,9 @@ class TDLeafAgent(AgentBase):
         value = values[idx]
         return move, value, node
 
-
-    def get_move(self, env, depth=3, return_value_node=False, pretrain=False):
+    def get_move(self, env, depth=3, return_value_node=False, pre_train=False):
         node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.minimax(node, depth, -100000, 100000, self.local_model.value_function(self.sess), pretrain)
+        leaf_value, leaf_node = self.minimax(node, depth, -1, 1, self.local_model.value_function(self.sess), pre_train)
         if len(leaf_node.path) > 1:
             move = leaf_node.path[1].move
         else:
@@ -155,7 +156,7 @@ class TDLeafAgent(AgentBase):
             return move
         return m
 
-    def minimax(self, node, depth, alpha, beta, value_function, pretrain):
+    def minimax(self, node, depth, alpha, beta, value_function, pre_train):
 
         alpha_orig = alpha
 
@@ -172,7 +173,7 @@ class TDLeafAgent(AgentBase):
                 return tt_row['value'], node
 
         if node.board.is_game_over():
-            if pretrain:
+            if pre_train:
                 fv = self.env.make_feature_vector2(node.board)
                 value = value_function(fv)
             else:
@@ -200,10 +201,10 @@ class TDLeafAgent(AgentBase):
         children = self.env.sort_children(node, children, self.ttable, self.killers.get(depth, []) + self.killers.get(depth-2, []))
 
         if node.board.turn:
-            best_v = -100000
+            best_v = -1
             best_n = None
             for child in children:
-                value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pretrain)
+                value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pre_train)
                 if value > best_v:
                     best_v = value
                     best_n = node
@@ -215,10 +216,10 @@ class TDLeafAgent(AgentBase):
                         self.killers[depth] = [child.move, self.killers[depth][0]]
                     break
         else:
-            best_v = 100000
+            best_v = 1
             best_n = None
             for child in children:
-                value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pretrain)
+                value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pre_train)
                 if value < best_v:
                     best_v = value
                     best_n = node

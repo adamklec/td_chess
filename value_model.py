@@ -10,7 +10,11 @@ class ValueModel:
         else:
             collections = None
 
-        with tf.variable_scope('neural_network'):
+        if is_local:
+            model_type = 'local'
+        else:
+            model_type = 'global'
+        with tf.variable_scope(model_type):
 
             self.feature_vector_ = tf.placeholder(tf.float32, shape=[None, fv_size], name='feature_vector_')
             with tf.variable_scope('layer_1'):
