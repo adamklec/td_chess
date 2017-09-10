@@ -63,7 +63,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                         print('-' * 100)
                 else:
                     episode_number = sess.run(agent.increment_train_episode_count)
-                    reward = agent.train(num_moves=10, depth=3, pretrain=True)
+                    reward = agent.train(num_moves=10, depth=1, pretrain=True)
                     if agent.verbose:
                         print(worker_name,
                               "EPISODE:", episode_number,
@@ -88,6 +88,7 @@ if __name__ == "__main__":
 
     ckpt_dir = "./log/" + args.run_name
     cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": chief_trainer_hosts + worker_trainer_hosts, "tester": tester_hosts})
+    # cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": chief_trainer_hosts})
     processes = []
 
     for task_idx, _ in enumerate(ps_hosts):

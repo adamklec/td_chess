@@ -65,10 +65,8 @@ class TDLeafAgent(AgentBase):
         turn_count = 0
 
         while self.env.get_reward() is None and turn_count < num_moves:
-            if pretrain:
-                move, value, node = self.get_move_pretrain(self.env)
-            else:
-                move, value, node = self.get_move(self.env, depth=depth, return_value_node=True)
+
+            move, value, node = self.get_move(self.env, depth=depth, return_value_node=True)
 
             value_seq.append(value)
             feature_vector = self.env.make_feature_vector2(node.board)
@@ -76,7 +74,11 @@ class TDLeafAgent(AgentBase):
             grads_seq.append(grads)
 
             if turn_count > 0:
-                delta = (value_seq[-1] - value_seq[-2])[0, 0]
+                if pretrain:
+                    delta = (material_value_from_board(node.board) - value_seq[-2][0, 0])
+                else:
+                    delta = (value_seq[-1] - value_seq[-2])[0, 0]
+
                 for grad, trace, grad_accum in zip(grads_seq[-2], traces, grad_accums):
                     trace *= lamda
                     trace += grad
