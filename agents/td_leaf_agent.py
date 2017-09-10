@@ -52,9 +52,9 @@ class TDLeafAgent(AgentBase):
         self.sess.run(self.pull_model_op)
 
         if pretrain:
-            lamda = 0.7
-        else:
             lamda = 0.0
+        else:
+            lamda = 0.7
 
         self.env.random_position(episode_count=self.sess.run(self.train_episode_count))
         self.ttable = dict()
