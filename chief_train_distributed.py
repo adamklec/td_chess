@@ -24,9 +24,6 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
             with tf.device("/job:worker/task:%d/cpu:0" % task_index):
                 with tf.variable_scope('local'):
                     local_network = ValueModel(is_local=True)
-
-            # fv_size = env.get_feature_vector_size()
-            # network = ValueModel(fv_size)
             network = ValueModel()
 
             worker_name = 'worker_%03d' % task_index

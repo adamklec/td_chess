@@ -42,10 +42,14 @@ class TDLeafAgent(AgentBase):
                                                         self.model.trainable_variables),
                                                     name='apply_grads', global_step=self.update_count)
 
-        self.mean_delta = tf.Variable(0.0, trainable=False, name='mean_delta')
-        self.delta_ = tf.placeholder(tf.float32, name='delta_')
+        ema = tf.train.ExponentialMovingAverage(decay=0.9999)
 
-        self.update_mean_delta = tf.assign_sub(self.mean_delta, .001 * tf.subtract(self.mean_delta, self.delta_))
+        delta = tf.Variable(0.0, trainable=False, name='mean_delta')
+        self.delta_ = tf.placeholder(tf.float32, name='delta_')
+        assign_delta = tf.assign(delta, self.delta_)
+
+        with tf.control_dependencies([assign_delta]):
+            self.update_delta = ema.apply([delta])
 
     def train(self, num_moves=10, depth=1, pre_train=False):
         self.sess.run(self.pull_global_model)
@@ -79,11 +83,11 @@ class TDLeafAgent(AgentBase):
 
             if turn_count > 0:
                 if pre_train:
-                    delta = (np.tanh(material_value_from_board(node.board) / 5.0) - value_seq[-2][0, 0])
+                    delta = (np.tanh(material_value_from_board(node.board) / 5.0) - value_seq[-2])[0, 0]
                 else:
                     delta = (value_seq[-1] - value_seq[-2])[0, 0]
 
-                self.sess.run(self.update_mean_delta, feed_dict={self.delta_: np.array([[delta]])})
+                self.sess.run(self.update_delta, feed_dict={self.delta_: delta})
 
                 for grad, trace, grad_accum in zip(grads_seq[-2], traces, grad_accums):
                     trace *= lamda
