@@ -167,8 +167,11 @@ class TDLeafAgent(AgentBase):
                 return tt_row['value'], node
 
         if node.board.is_game_over():
-            value = node.board.result()
-            if not pretrain:
+            if pretrain:
+                fv = self.env.make_feature_vector2(node.board)
+                value = value_function(fv)
+            else:
+                value = node.board.result()
                 if isinstance(value, str):
                     value = convert_string_result(value)
                 else:
