@@ -73,7 +73,10 @@ if __name__ == "__main__":
 
     ckpt_dir = "./log/" + args.run_name
     cluster_spec = tf.train.ClusterSpec(
-        {"ps": ps_hosts, "worker": chief_trainer_hosts + worker_trainer_hosts, "tester": tester_hosts})
+        {"ps": ps_hosts,
+         "worker": chief_trainer_hosts + worker_trainer_hosts,
+         "tester": tester_hosts}
+    )
     processes = []
 
     for task_idx, _ in enumerate(worker_trainer_hosts):

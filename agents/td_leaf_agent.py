@@ -75,7 +75,7 @@ class TDLeafAgent(AgentBase):
 
             if turn_count > 0:
                 if pretrain:
-                    delta = (material_value_from_board(node.board) - value_seq[-2][0, 0])
+                    delta = (np.tanh(material_value_from_board(node.board)/5) - value_seq[-2][0, 0])
                 else:
                     delta = (value_seq[-1] - value_seq[-2])[0, 0]
 
