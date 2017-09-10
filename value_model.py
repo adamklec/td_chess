@@ -18,19 +18,19 @@ class ValueModel:
                                       shape=[fv_size, hidden_dim],
                                       initializer=tf.contrib.layers.xavier_initializer(),
                                       collections=collections)
-                hidden_1 = tf.nn.relu(tf.matmul(self.feature_vector_, W_1), name='hidden')
+                hidden_1 = tf.nn.relu(tf.matmul(self.feature_vector_, W_1), name='hidden_1')
 
             with tf.variable_scope('layer_2'):
                 W_2 = tf.get_variable('W_2', shape=[hidden_dim, hidden_dim],
                                       initializer=tf.contrib.layers.xavier_initializer(),
                                       collections=collections)
-                hidden_2 = tf.nn.relu(tf.matmul(hidden_1, W_2), name='hidden')
+                hidden_2 = tf.nn.relu(tf.matmul(hidden_1, W_2), name='hidden_2')
 
             with tf.variable_scope('layer_3'):
                 W_3 = tf.get_variable('W_3', shape=[hidden_dim, 1],
                                       initializer=tf.contrib.layers.xavier_initializer(),
                                       collections=collections)
-                self.value = tf.tanh(tf.matmul(hidden_2, W_3))
+                self.value = tf.tanh(tf.matmul(hidden_2, W_3), name='value')
 
             self.trainable_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                                          scope=tf.get_variable_scope().name)
