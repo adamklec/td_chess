@@ -66,7 +66,7 @@ class TDLeafAgent(AgentBase):
 
         while self.env.get_reward() is None and turn_count < num_moves:
 
-            move, value, node = self.get_move(self.env, depth=depth, return_value_node=True)
+            move, value, node = self.get_move(self.env, depth=depth, return_value_node=True, pretrain=pretrain)
 
             value_seq.append(value)
             feature_vector = self.env.make_feature_vector2(node.board)
@@ -131,9 +131,9 @@ class TDLeafAgent(AgentBase):
         return move, value, node
 
 
-    def get_move(self, env, depth=3, return_value_node=False):
+    def get_move(self, env, depth=3, return_value_node=False, pretrain=False):
         node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.minimax(node, depth, -100000, 100000, self.local_model.value_function(self.sess))
+        leaf_value, leaf_node = self.minimax(node, depth, -100000, 100000, self.local_model.value_function(self.sess), pretrain)
         if len(leaf_node.path) > 1:
             move = leaf_node.path[1].move
         else:
@@ -150,7 +150,7 @@ class TDLeafAgent(AgentBase):
             return move
         return m
 
-    def minimax(self, node, depth, alpha, beta, value_function):
+    def minimax(self, node, depth, alpha, beta, value_function, pretrain):
 
         alpha_orig = alpha
 
@@ -168,10 +168,11 @@ class TDLeafAgent(AgentBase):
 
         if node.board.is_game_over():
             value = node.board.result()
-            if isinstance(value, str):
-                value = convert_string_result(value)
-            else:
-                value = np.array([[value]])
+            if not pretrain:
+                if isinstance(value, str):
+                    value = convert_string_result(value)
+                else:
+                    value = np.array([[value]])
             return value, node
 
         elif depth <= 0 and self.env.is_quiet(node.board, depth):
