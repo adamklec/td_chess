@@ -87,7 +87,7 @@ class TestMinimax(unittest.TestCase):
         # print(RenderTree(a, style=AsciiStyle()))
 
         print('\n')
-        v, n = agent.minimax(a, 4, -100000, 100000, lambda node: node.value)
+        v, n = agent.minimax(a, 4, -100000, 100000, lambda node: node.value, False)
 
         print('\n\n', v, n)
 
