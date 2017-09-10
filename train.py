@@ -4,7 +4,7 @@ from agents.td_leaf_agent import TDLeafAgent
 from envs.tic_tac_toe import TicTacToeEnv
 from envs.chess import ChessEnv
 from value_model import ValueModel
-from chess_value_model import ChessValueModel
+from value_model import ValueModel
 import time
 import cProfile
 

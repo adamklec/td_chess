@@ -3,7 +3,7 @@ from anytree import Node, RenderTree
 from anytree.render import AsciiStyle
 from agents.td_leaf_agent import TDLeafAgent
 from envs.chess import ChessEnv
-from chess_value_model import ChessValueModel
+from value_model import ValueModel
 
 
 class TestMinimax(unittest.TestCase):
@@ -28,7 +28,7 @@ class TestMinimax(unittest.TestCase):
         env4.make_move(list(env4.get_legal_moves(env4.board))[0])
         env4.make_move(list(env4.get_legal_moves(env4.board))[0])
 
-        model = ChessValueModel()
+        model = ValueModel()
         agent = TDLeafAgent('agent', model, env)
 
         a = Node('a', board=env.board, value=6)

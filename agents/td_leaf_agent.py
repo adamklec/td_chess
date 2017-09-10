@@ -3,6 +3,7 @@ import numpy as np
 from anytree import Node
 from agents.agent_base import AgentBase
 import time
+from envs.chess import material_value_from_board
 
 class TDLeafAgent(AgentBase):
     def __init__(self,
@@ -47,13 +48,10 @@ class TDLeafAgent(AgentBase):
                                                         self.model.trainable_variables),
                                                     name='apply_grads', global_step=self.update_count)
 
-    def train(self, num_moves=10, depth=1):
-        t0 = time.time()
+    def train(self, num_moves=10, depth=1, pretrain=False):
         self.sess.run(self.pull_model_op)
-        print(self.name, "PULL MODEL TIME:", time.time() - t0)
         lamda = 0.7
         self.env.random_position(episode_count=self.sess.run(self.train_episode_count))
-        # self.env.set_board(chess.Board("1k2r3/1p1bP3/2p2p1Q/Ppb5/4Rp1P/2q2N1P/5PB1/6K1 b - - 0 1"))
         self.ttable = dict()
         self.killers = dict()
         # starting_position_move_str = ','.join([str(m) for m in self.env.get_move_stack()])
@@ -67,9 +65,13 @@ class TDLeafAgent(AgentBase):
         turn_count = 0
 
         while self.env.get_reward() is None and turn_count < num_moves:
-            move, leaf_value, leaf_node = self.get_move(self.env, depth=depth, return_value_node=True)
-            value_seq.append(leaf_value)
-            feature_vector = self.env.make_feature_vector2(leaf_node.board)
+            if pretrain:
+                move, value, node = self.get_move_pretrain(self.env)
+            else:
+                move, value, node = self.get_move(self.env, depth=depth, return_value_node=True)
+
+            value_seq.append(value)
+            feature_vector = self.env.make_feature_vector2(node.board)
             grads = self.sess.run(self.grads, feed_dict={self.local_model.feature_vector_: feature_vector})
             grads_seq.append(grads)
 
@@ -104,6 +106,28 @@ class TDLeafAgent(AgentBase):
         #     move_log.write(starting_position_move_str + '/' + selected_moves_string + ':' + str(self.env.get_reward()) + '\n')
 
         return self.env.get_reward()
+
+    def get_move_pretrain(self, env):
+        node = Node('root', board=env.board, move=env.get_null_move())
+        moves = list(node.board.legal_moves)
+        children = []
+        for move in node.board.legal_moves:
+            child_board = node.board.copy()
+            child_board.push(move)
+            child = Node(str(move), parent=node, board=child_board, move=move)
+            children.append(child)
+
+        values = []
+        for child in children:
+            values.append(material_value_from_board(child.board))
+        if node.board.turn:
+            idx = np.argmax(values)
+        else:
+            idx = np.argmin(values)
+        move = moves[idx]
+        value = values[idx]
+        return move, value, node
+
 
     def get_move(self, env, depth=3, return_value_node=False):
         node = Node('root', board=env.board, move=env.get_null_move())

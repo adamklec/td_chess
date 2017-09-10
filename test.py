@@ -1,7 +1,7 @@
 import tensorflow as tf
 from agents.td_leaf_agent import TDLeafAgent
 from envs.chess import ChessEnv
-from chess_value_model import ChessValueModel
+from value_model import ValueModel
 import time
 import cProfile
 
@@ -11,7 +11,7 @@ def main():
     config = tf.ConfigProto(device_count={'GPU': 0})
     with tf.Session(config=config) as sess:
 
-        network = ChessValueModel()
+        network = ValueModel()
         env = ChessEnv()
 
         agent = TDLeafAgent('tester_0', network, env, verbose=2)

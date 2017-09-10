@@ -5,7 +5,7 @@ from multiprocessing import Process
 import time
 import tensorflow as tf
 from value_model import ValueModel
-from chess_value_model import ChessValueModel
+from value_model import ValueModel
 
 
 def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test):
@@ -25,11 +25,11 @@ def work(env, job_name, task_index, cluster, log_dir, verbose, random_agent_test
 
             with tf.device("/job:worker/task:%d/cpu:0" % task_index):
                 with tf.variable_scope('local'):
-                    local_network = ChessValueModel(is_local=True)
+                    local_network = ValueModel(is_local=True)
 
             # fv_size = env.get_feature_vector_size()
             # network = ValueModel(fv_size)
-            network = ChessValueModel()
+            network = ValueModel()
 
             opt = tf.train.AdamOptimizer()
             opt = tf.train.SyncReplicasOptimizer(opt, 100)

@@ -3,7 +3,7 @@ from envs.chess import ChessEnv
 from multiprocessing import Process
 import time
 import tensorflow as tf
-from chess_value_model import ChessValueModel
+from value_model import ValueModel
 import argparse
 
 
@@ -23,11 +23,11 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
             with tf.device("/job:worker/task:%d/cpu:0" % task_index):
                 with tf.variable_scope('local'):
-                    local_network = ChessValueModel(is_local=True)
+                    local_network = ValueModel(is_local=True)
 
             # fv_size = env.get_feature_vector_size()
             # network = ValueModel(fv_size)
-            network = ChessValueModel()
+            network = ValueModel()
 
             worker_name = 'worker_%03d' % task_index
             agent = TDLeafAgent(worker_name,
@@ -63,7 +63,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
                         print('-' * 100)
                 else:
                     episode_number = sess.run(agent.increment_train_episode_count)
-                    reward = agent.train(num_moves=10, depth=3)
+                    reward = agent.train(num_moves=10, depth=3, pretrain=True)
                     if agent.verbose:
                         print(worker_name,
                               "EPISODE:", episode_number,
@@ -87,8 +87,7 @@ if __name__ == "__main__":
     tester_hosts = [args.tester_ip + ':' + str(3333 + i) for i in range(40)]
 
     ckpt_dir = "./log/" + args.run_name
-    cluster_spec = tf.train.ClusterSpec(
-        {"ps": ps_hosts, "worker": chief_trainer_hosts + worker_trainer_hosts, "tester": tester_hosts})
+    cluster_spec = tf.train.ClusterSpec({"ps": ps_hosts, "worker": chief_trainer_hosts + worker_trainer_hosts, "tester": tester_hosts})
     processes = []
 
     for task_idx, _ in enumerate(ps_hosts):

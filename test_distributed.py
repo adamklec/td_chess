@@ -3,7 +3,7 @@ from envs.chess import ChessEnv
 from multiprocessing import Process
 import time
 import tensorflow as tf
-from chess_value_model import ChessValueModel
+from value_model import ValueModel
 import argparse
 from os import listdir
 from os.path import isfile, join
@@ -43,9 +43,9 @@ def work(env, task_index, cluster, log_dir, verbose):
 
         with tf.device(worker_device):
             with tf.variable_scope('local'):
-                local_network = ChessValueModel(is_local=True)
+                local_network = ValueModel(is_local=True)
 
-        network = ChessValueModel()
+        network = ValueModel()
 
         worker_name = 'worker_%03d' % task_index
         agent = TDLeafAgent(worker_name,
