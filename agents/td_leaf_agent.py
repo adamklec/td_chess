@@ -51,6 +51,8 @@ class TDLeafAgent(AgentBase):
         with tf.control_dependencies([assign_delta]):
             self.update_delta = ema.apply([delta])
 
+        tf.summary.scalar("mean_delta", ema.average(delta))
+
     def train(self, num_moves=10, depth=1, pre_train=False):
         self.sess.run(self.pull_global_model)
 
