@@ -56,10 +56,7 @@ class TDLeafAgent(AgentBase):
     def train(self, num_moves=10, depth=1, pre_train=False):
         self.sess.run(self.pull_global_model)
 
-        if pre_train:
-            lamda = 0.0
-        else:
-            lamda = 0.7
+        lamda = 0.7
 
         self.env.random_position(episode_count=self.sess.run(self.train_episode_count))
         self.ttable = dict()
@@ -67,34 +64,35 @@ class TDLeafAgent(AgentBase):
         # starting_position_move_str = ','.join([str(m) for m in self.env.get_move_stack()])
         # selected_moves = []
 
-        value_seq = []
-        grads_seq = []
         traces = [np.zeros(tvar.shape) for tvar in self.local_model.trainable_variables]
         grad_accums = [np.zeros(tvar.shape) for tvar in self.local_model.trainable_variables]
 
         turn_count = 0
 
+        previous_grads = None
+        previous_value = None
         while self.env.get_reward() is None and turn_count < num_moves:
 
             move, value, node = self.get_move(self.env, depth=depth, return_value_node=True, pre_train=pre_train)
 
-            value_seq.append(value)
             feature_vector = self.env.make_feature_vector2(node.board)
             grads = self.sess.run(self.grads, feed_dict={self.local_model.feature_vector_: feature_vector})
-            grads_seq.append(grads)
 
-            if turn_count > 0:
-                if pre_train:
-                    delta = (np.tanh(material_value_from_board(node.board) / 5.0) - value_seq[-2])[0, 0]
-                else:
-                    delta = (value_seq[-1] - value_seq[-2])[0, 0]
-
+            if pre_train:
+                delta = (np.tanh(material_value_from_board(node.board) / 5.0) - value)[0, 0]
+                for grad, grad_accum in zip(grads, grad_accums):
+                    grad_accum -= delta * grad
                 self.sess.run(self.update_delta, feed_dict={self.delta_: delta})
-
-                for grad, trace, grad_accum in zip(grads_seq[-2], traces, grad_accums):
-                    trace *= lamda
-                    trace += grad
-                    grad_accum -= delta * trace
+            else:
+                if turn_count > 0:
+                    delta = (value - previous_value)[0, 0]
+                    for grad, trace, grad_accum in zip(previous_grads, traces, grad_accums):
+                        trace *= lamda
+                        trace += grad
+                        grad_accum -= delta * trace
+                    previous_grads = grads
+                    previous_value = value
+                    self.sess.run(self.update_delta, feed_dict={self.delta_: delta})
 
                 self.env.make_move(move)
             turn_count += 1
