@@ -58,7 +58,7 @@ class AgentBase(metaclass=ABCMeta):
                                                          self.test_idx_*100 + self.row_idx_,
                                                          self.test_result_)
 
-        with tf.name_scope('random_agent'):
+        with tf.name_scope('random_agent_test_results'):
 
             self.first_player_wins = tf.Variable(0, name="first_player_wins", trainable=False)
             self.first_player_draws = tf.Variable(0, name="first_player_draws", trainable=False)
