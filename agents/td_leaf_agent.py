@@ -90,11 +90,11 @@ class TDLeafAgent(AgentBase):
                         trace *= lamda
                         trace += grad
                         grad_accum -= delta * trace
-                    previous_grads = grads
-                    previous_value = value
                     self.sess.run(self.update_delta, feed_dict={self.delta_: delta})
+                previous_grads = grads
+                previous_value = value
 
-                self.env.make_move(move)
+            self.env.make_move(move)
             turn_count += 1
 
             new_killers = dict()
