@@ -8,6 +8,7 @@ from os import listdir
 from os.path import isfile, join
 import re
 
+
 def parse_test_string(string):
     data = [s for s in string.split('; ')]
     d = dict()

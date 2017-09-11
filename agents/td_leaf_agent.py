@@ -86,9 +86,9 @@ class TDLeafAgent(AgentBase):
             else:
                 if turn_count > 0:
                     delta = (value - previous_value)[0, 0]
-                    for grad, trace, grad_accum in zip(previous_grads, traces, grad_accums):
+                    for previous_grad, trace, grad_accum in zip(previous_grads, traces, grad_accums):
                         trace *= lamda
-                        trace += grad
+                        trace += previous_grad
                         grad_accum -= delta * trace
                     self.sess.run(self.update_delta, feed_dict={self.delta_: delta})
                 previous_grads = grads
