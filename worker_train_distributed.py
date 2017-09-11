@@ -45,7 +45,7 @@ def work(env, job_name, task_index, cluster, log_dir, verbose):
 
             while not sess.should_stop():
                 episode_number = sess.run(agent.increment_train_episode_count)
-                reward = agent.train(num_moves=10, depth=1, pre_train=True)
+                reward = agent.train(num_moves=10, depth=3, pre_train=False)
                 if agent.verbose:
                     print(worker_name,
                           "EPISODE:", episode_number,
