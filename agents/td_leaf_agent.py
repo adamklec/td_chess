@@ -208,7 +208,7 @@ class TDLeafAgent(AgentBase):
             best_n = None
             for child in children:
                 value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pre_train)
-                if value > best_v:
+                if value >= best_v:
                     best_v = value
                     best_n = node
                 alpha = max(alpha, value)
@@ -223,7 +223,7 @@ class TDLeafAgent(AgentBase):
             best_n = None
             for child in children:
                 value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pre_train)
-                if value < best_v:
+                if value <= best_v:
                     best_v = value
                     best_n = node
                 beta = min(beta, value)
