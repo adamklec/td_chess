@@ -78,8 +78,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ps_hosts = [args.chief_ip + ':' + str(2222 + i) for i in range(5)]
-    chief_trainer_hosts = [args.chief_ip + ':' + str(3333 + i) for i in range(40)]
-    worker_trainer_hosts = [args.worker_ip + ':' + str(3333 + i) for i in range(40)]
+    chief_trainer_hosts = [args.chief_ip + ':' + str(3333 + i) for i in range(35)]
+    worker_trainer_hosts = [args.worker_ip + ':' + str(3333 + i) for i in range(35)]
     tester_hosts = [args.tester_ip + ':' + str(3333 + i) for i in range(35)]
 
     ckpt_dir = "./log/" + args.run_name
