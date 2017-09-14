@@ -127,12 +127,12 @@ class ChessEnv(GameEnvBase):
             else:
                 others.append(child)
 
-        captures = sorted(captures, key=lambda node: self.mmv_lva(node.parent.board, node.move))
+        captures = sorted(captures, key=lambda node: self.mvv_lva(node.parent.board, node.move))
         hashed_nodes = sorted(hashed_nodes, key=lambda node: ttable[self.zobrist_hash(node.board)]['value'], reverse=not parent.board.turn)
         return hashed_nodes + in_killers + captures + others
 
     @staticmethod
-    def mmv_lva(board, move):
+    def mvv_lva(board, move):
         if board.is_en_passant(move):
             aggressor = chess.PAWN
             victim = chess.PAWN
