@@ -36,8 +36,7 @@ class ChessEnv(GameEnvBase):
     def make_board(self, fen):
         self.board = chess.Board(fen)
 
-    def random_position(self, episode_count=None):
-        self.episode_count_ = episode_count
+    def random_position(self):
         for _ in range(randint(1, 100)):
             self.board = self.board_generator.__next__()
 
@@ -170,17 +169,12 @@ class ChessEnv(GameEnvBase):
     def zobrist_hash(self, board):
         return zobrist_hash(board)
 
-    def random_board_generator(self, pgn, decay=5000):
+    def random_board_generator(self, pgn):
         while True:
             game = read_game(pgn)
             main_line_length = len(list(game.main_line()))
-            if self.episode_count_ is None:
-                min_move_number = 0
-            else:
-                min_move_number = int(np.e**(-self.episode_count_/decay) * (main_line_length - 1))
-
             if game and len(list(game.main_line())) > 0:
-                move_number = np.random.randint(min_move_number, high=main_line_length - 1)  # don't take the last move
+                move_number = np.random.randint(0, high=main_line_length - 1)  # don't take the last move
                 for _ in range(move_number):
                     game = game.variation(0)
                 yield game.board()
