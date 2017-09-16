@@ -12,8 +12,7 @@ class ChessEnv(GameEnvBase):
     def __init__(self):
         self.board = chess.Board()
 
-        pgn = open("./data/millionbase-2.22.pgn")
-        self.board_generator = self.random_board_generator(pgn)
+        self.board_generator = self.random_board_generator()
 
         self.tests = []
         # path = "./old_chess_tests/"
@@ -169,7 +168,9 @@ class ChessEnv(GameEnvBase):
     def zobrist_hash(self, board):
         return zobrist_hash(board)
 
-    def random_board_generator(self, pgn):
+    @staticmethod
+    def random_board_generator():
+        pgn = open("./data/millionbase-2.22.pgn")
         while True:
             game = read_game(pgn)
             main_line_length = len(list(game.main_line()))
