@@ -139,9 +139,14 @@ class TDLeafAgent(AgentBase):
         value = values[idx]
         return move, value, node
 
-    def get_move(self, env, depth=3, return_value_node=False, pre_train=False):
+    def get_move(self, env, depth=3, return_value_node=False, use_material_value=False, pre_train=False):
+        if use_material_value:
+            value_function = env.board_value
+        else:
+            value_function = self.local_model.value_function(self.sess)
+
         node = Node('root', board=env.board, move=env.get_null_move())
-        leaf_value, leaf_node = self.minimax(node, depth, -1, 1, self.local_model.value_function(self.sess), pre_train)
+        leaf_value, leaf_node = self.minimax(node, depth, -1, 1, value_function, pre_train, use_material_value)
         if len(leaf_node.path) > 1:
             move = leaf_node.path[1].move
         else:
@@ -158,7 +163,7 @@ class TDLeafAgent(AgentBase):
             return move
         return m
 
-    def minimax(self, node, depth, alpha, beta, value_function, pre_train):
+    def minimax(self, node, depth, alpha, beta, value_function, pre_train, use_material_value):
 
         alpha_orig = alpha
 
@@ -187,8 +192,11 @@ class TDLeafAgent(AgentBase):
             return value, node
 
         elif depth <= 0 and self.env.is_quiet(node.board, depth):
-            fv = self.env.make_feature_vector(node.board)
-            value = value_function(fv)
+            if use_material_value:
+                value = np.tanh(self.env.board_value(node.board))
+            else:
+                fv = self.env.make_feature_vector(node.board)
+                value = value_function(fv)
             tt_row = {'value': value, 'flag': 'EXACT', 'depth': depth}
             self.ttable[hash_key] = tt_row
             return value, node
@@ -206,7 +214,7 @@ class TDLeafAgent(AgentBase):
             best_v = -1
             best_n = None
             for child in children:
-                value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pre_train)
+                value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pre_train, use_material_value)
                 if value >= best_v:
                     best_v = value
                     best_n = node
@@ -221,7 +229,7 @@ class TDLeafAgent(AgentBase):
             best_v = 1
             best_n = None
             for child in children:
-                value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pre_train)
+                value, node = self.minimax(child, depth - 1, alpha, beta, value_function, pre_train, use_material_value)
                 if value <= best_v:
                     best_v = value
                     best_n = node

@@ -97,29 +97,14 @@ class AgentBase(metaclass=ABCMeta):
     def get_move_function(self, depth):
         return NotImplemented
 
-    def test2(self, d, depth=1):
+    def test(self, d, depth=1, use_material_value=False):
         self.sess.run(self.pull_global_model)
         self.killers = dict()
         self.ttable = dict()
         self.env.make_board(d['fen'])
-        move = self.get_move(self.env, depth=depth)
+        move = self.get_move(self.env, depth=depth, use_material_value=use_material_value)
         result = d['c0'].get(self.env.board.san(move), 0)
         return result
-
-    def test(self, test_idx, depth=1):
-        self.sess.run(self.pull_global_model)
-        self.killers = dict()
-        self.ttable = dict()
-        df = self.env.get_test(test_idx)
-        total_result = 0
-        for i, (_, row) in enumerate(df.iterrows()):
-            self.env.make_board(row.fen)
-            move = self.get_move(self.env, depth=depth)
-            result = row.c0.get(self.env.board.san(move), 0)
-            total_result += result
-            if self.verbose > 1:
-                print(self.name, 'test suite:', test_idx+1, 'row:', i, 'result:', result)
-        return total_result
 
     # def random_agent_test(self, depth=1):
     #

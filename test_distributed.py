@@ -77,7 +77,7 @@ def work(env, task_index, cluster, log_dir, verbose):
             episode_number = sess.run(agent.increment_test_episode_count)
             test_idx = (episode_number-1) % num_tests
             d = parse_test_string(test_strings[test_idx])
-            result = agent.test2(d, depth=3)
+            result = agent.test(d, depth=3)
 
             filename = test_filenames[test_idx]
             matches = re.split('-|\.', filename)
