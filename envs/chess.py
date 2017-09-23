@@ -295,9 +295,9 @@ def pair_piece_features(board, side, from_squares):
     features = [[0, 0, 0, 0, 0]] * 6
     material = []
     for piece in range(2, 5):
-        squares = list(board.pieces(piece, side))[:2]
+        squares = list(board.pieces(piece, side))
         material.append(len(squares)/2.0)
-        for i, square in enumerate(squares):
+        for i, square in enumerate(squares[:2]):
             rank = int(square / 8)
             file = square % 8
 
