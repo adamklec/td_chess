@@ -8,23 +8,21 @@ class AgentBase(metaclass=ABCMeta):
     def __init__(self, name, model, local_model, env, verbose=False):
 
         self.name = name
-        with tf.name_scope('model'):
-            self.model = model
-            self.local_model = local_model
-            assign_tvar_ops = []
-            for tvar, local_tvar in zip(self.model.trainable_variables, self.local_model.trainable_variables):
-                assign_tvar_op = tf.assign(local_tvar, tvar)
-                assign_tvar_ops.append(assign_tvar_op)
-            self.pull_global_model = tf.group(*assign_tvar_ops, name='pull_global_model')
+        self.model = model
+        self.local_model = local_model
+        assign_tvar_ops = []
+        for tvar, local_tvar in zip(self.model.trainable_variables, self.local_model.trainable_variables):
+            assign_tvar_op = tf.assign(local_tvar, tvar)
+            assign_tvar_ops.append(assign_tvar_op)
+            tf.summary.histogram(tvar.op.name, tvar)
+
+        self.pull_global_model = tf.group(*assign_tvar_ops, name='pull_global_model')
 
         self.env = env
         self.verbose = verbose
         self.sess = None
         self.killers = dict()
         self.ttable = dict()
-
-        for tvar in self.model.trainable_variables:
-            tf.summary.histogram(tvar.op.name, tvar)
 
         with tf.name_scope('epsiode_count'):
             self.update_count = tf.train.get_or_create_global_step()

@@ -156,6 +156,33 @@ class ChessEnv(GameEnvBase):
                 pgn.seek(0)
 
     @staticmethod
+    def random_board_generator2():
+        while True:
+            board = chess.Board.empty()
+            squares = list(range(64))
+            np.random.shuffle(squares)
+
+            board.set_piece_at(squares[0], chess.Piece(6, 0))
+            board.set_piece_at(squares[1], chess.Piece(6, 1))
+
+            # make_feature_vector breaks if there are more than 8 pawns of a color
+            num_white_pawns = np.random.randint(0, 9)
+            for square in squares[2: 2+num_white_pawns]:
+                piece = chess.Piece(1, 1)
+                board.set_piece_at(square, piece)
+
+            num_black_pawns = np.random.randint(0, 9)
+            for square in squares[2+num_white_pawns: 2+num_white_pawns+num_black_pawns]:
+                piece = chess.Piece(1, 0)
+                board.set_piece_at(square, piece)
+
+            num_pieces = np.random.randint(0, 17)
+            for square in squares[2+num_white_pawns+num_black_pawns: 2+num_white_pawns+num_black_pawns + num_pieces]:
+                color = np.random.randint(0, 2)
+                piece_type = np.random.randint(2, 6)
+                piece = chess.Piece(piece_type, color)
+                board.set_piece_at(square, piece)
+            yield board
 
     # @staticmethod
     # def make_feature_vector(board):
