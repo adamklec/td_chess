@@ -49,9 +49,14 @@ class GameEnvBase(metaclass=ABCMeta):
     def get_legal_moves(self, board=None):
         return NotImplemented
 
-    @classmethod
+    @staticmethod
     @abstractmethod
-    def make_feature_vector(cls, board):
+    def make_feature_vector(board):
+        return NotImplemented
+
+    @staticmethod
+    @abstractmethod
+    def board_value(board):
         return NotImplemented
 
     @staticmethod

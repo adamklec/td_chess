@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 from anytree import Node
 from agents.agent_base import AgentBase
-from envs.chess import material_value_from_board
 
 
 class TDLeafAgent(AgentBase):
@@ -75,11 +74,11 @@ class TDLeafAgent(AgentBase):
 
             move, value, node = self.get_move(self.env, depth=depth, return_value_node=True, pre_train=pre_train)
 
-            feature_vector = self.env.make_feature_vector2(node.board)
+            feature_vector = self.env.make_feature_vector(node.board)
             grads = self.sess.run(self.grads, feed_dict={self.local_model.feature_vector_: feature_vector})
 
             if pre_train:
-                delta = (np.tanh(material_value_from_board(node.board) / 5.0) - value)[0, 0]
+                delta = (np.tanh(self.env.board_value(node.board) / 5.0) - value)[0, 0]
                 for grad, grad_accum in zip(grads, grad_accums):
                     grad_accum -= delta * grad
                 self.sess.run(self.update_delta, feed_dict={self.delta_: delta})
@@ -131,7 +130,7 @@ class TDLeafAgent(AgentBase):
 
         values = []
         for child in children:
-            values.append(material_value_from_board(child.board))
+            values.append(env.board_value(child.board))
         if node.board.turn:
             idx = np.argmax(values)
         else:
@@ -177,7 +176,7 @@ class TDLeafAgent(AgentBase):
 
         if node.board.is_game_over():
             if pre_train:
-                fv = self.env.make_feature_vector2(node.board)
+                fv = self.env.make_feature_vector(node.board)
                 value = value_function(fv)
             else:
                 value = node.board.result()
@@ -188,7 +187,7 @@ class TDLeafAgent(AgentBase):
             return value, node
 
         elif depth <= 0 and self.env.is_quiet(node.board, depth):
-            fv = self.env.make_feature_vector2(node.board)
+            fv = self.env.make_feature_vector(node.board)
             value = value_function(fv)
             tt_row = {'value': value, 'flag': 'EXACT', 'depth': depth}
             self.ttable[hash_key] = tt_row

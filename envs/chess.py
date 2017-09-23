@@ -66,22 +66,6 @@ class ChessEnv(GameEnvBase):
         legal_moves = list(board.legal_moves)
         return legal_moves
 
-    @classmethod
-    def make_feature_vector(cls, board):
-        # 6 piece type each color + 1 turn bit
-        fv_size = cls.get_feature_vector_size()
-
-        feature_vector = np.zeros((1, fv_size), dtype='float32')
-
-        for piece in range(6):
-            for color in range(2):
-                squares = board.pieces(piece + 1, color)
-                for square in squares:
-                    feature_vector[0, piece + 6 * color + 12 * square] = 1
-        feature_vector[0, -1] = board.turn
-
-        return feature_vector
-
     @staticmethod
     def is_quiet(board, depth):
         parent_board = board.copy()
@@ -148,17 +132,6 @@ class ChessEnv(GameEnvBase):
         # return (len(chess.PIECE_TYPES) + 1) * len(chess.COLORS) * 64 + 5
         return 171
 
-    # @classmethod
-    # def get_simple_value_weights(cls):
-    #     return np.array([[-1, -3, -3, -5, -9, -15, 1, 3, 3, 5, 9, 15] * 64 + [0]]).T
-
-    # @classmethod
-    # def get_material_value_weights(cls):
-    #     values = np.array([1] * 8 + [3] * 4 + [5] * 2 + [9] + [15] + [-1] * 8 + [-3] * 4 + [-5] * 2 + [-9] + [-15])
-    #     weights = np.zeros((193, 1))
-    #     weights[2:192:6, 0] = values
-    #     return weights
-
     @classmethod
     def get_material_value_weights(cls):
         w = np.zeros((1, 171))
@@ -183,8 +156,26 @@ class ChessEnv(GameEnvBase):
                 pgn.seek(0)
 
     @staticmethod
-    def make_feature_vector2(board):
-        fv = np.zeros((1, 171))
+
+    # @staticmethod
+    # def make_feature_vector(board):
+    #     # 6 piece type each color + 1 turn bit
+    #     fv_size = ChessEnv.get_feature_vector_size()
+    #
+    #     feature_vector = np.zeros((1, fv_size), dtype='float32')
+    #
+    #     for piece in range(6):
+    #         for color in range(2):
+    #             squares = board.pieces(piece + 1, color)
+    #             for square in squares:
+    #                 feature_vector[0, piece + 6 * color + 12 * square] = 1
+    #     feature_vector[0, -1] = board.turn
+    #
+    #     return feature_vector
+
+    @staticmethod
+    def make_feature_vector(board):
+        fv = np.zeros((1, 171), dtype='float32')
         from_squares = [move.from_square for move in board.legal_moves]
         white_pawn_features, white_pawn_material = pawn_features(board, 1, from_squares)
         white_pair_piece_features, white_pair_material = pair_piece_features(board, 1, from_squares)
@@ -201,15 +192,10 @@ class ChessEnv(GameEnvBase):
         fv[0, -10:] = material
         return fv
 
-
-def board_generator(pgn):
-    while True:
-        game = read_game(pgn)
-        if not game:
-            pgn.seek()
-        while not game.board().is_game_over():
-            game = game.variation(0)
-        yield game.board()
+    @staticmethod
+    def board_value(board):
+        value = material_value_from_fen(board.fen())
+        return np.array([[value]])
 
 
 def make_random_move(board):
@@ -235,11 +221,6 @@ def material_value_from_fen(fen):
     value -= fen.count('q') * 9
 
     return value
-
-
-def material_value_from_board(board):
-    value = material_value_from_fen(board.fen())
-    return np.array([[value]])
 
 
 def parse_tests(filename):
